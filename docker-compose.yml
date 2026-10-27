@@ -1,0 +1,68 @@
+# Local environment.
+#   docker compose up -d sqlserver            # just the database, run API/UI from your IDE
+#   docker compose --profile app up --build   # everything in containers, open http://localhost:8080
+#
+# Dev-only secrets below (SA password, JWT key). Production values come from Container Apps secrets.
+
+name: ashopper
+
+x-sql: &sql "Server=sqlserver,1433;Database=ashopper;User Id=sa;Password=Ashopper_dev_123!;TrustServerCertificate=True"
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Ashopper_dev_123!"
+      MSSQL_PID: Developer
+    ports: ["1433:1433"]
+    volumes: [sqldata:/var/opt/mssql]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  migrate:
+    profiles: [app]
+    build: { context: backend, dockerfile: Dockerfile.collector }
+    command: ["migrate"]
+    environment:
+      ConnectionStrings__Sql: *sql
+    depends_on:
+      sqlserver: { condition: service_healthy }
+
+  collector:
+    profiles: [app]
+    build: { context: backend, dockerfile: Dockerfile.collector }
+    command: ["collect", "--backfill-days", "180"]
+    environment:
+      ConnectionStrings__Sql: *sql
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  api:
+    profiles: [app]
+    build: { context: backend, dockerfile: Dockerfile.api }
+    environment:
+      ConnectionStrings__Sql: *sql
+      Auth__PublicUrl: http://localhost:8080
+      Auth__Jwt__RefreshCookieSecure: "false"
+      Auth__Jwt__ActiveKeyId: dev
+      Auth__Jwt__SigningKeys__0__Id: dev
+      Auth__Jwt__SigningKeys__0__Key: ZGV2LW9ubHktc2lnbmluZy1rZXktZG8tbm90LXVzZS1pbi1wcm9kdWN0aW9uIQ==
+    # No published port: like on Azure, the API is only reachable through the UI's proxy.
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  ui:
+    profiles: [app]
+    build: { context: frontend }
+    environment:
+      API_UPSTREAM: http://api:8080
+    ports: ["8080:8080"]
+    depends_on: [api]
+
+volumes:
+  sqldata:

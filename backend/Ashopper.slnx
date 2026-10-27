@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ashopper.Api/Ashopper.Api.csproj" />
+    <Project Path="src/Ashopper.Collector/Ashopper.Collector.csproj" />
+    <Project Path="src/Ashopper.Domain/Ashopper.Domain.csproj" />
+    <Project Path="src/Ashopper.Infrastructure/Ashopper.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ashopper.Tests/Ashopper.Tests.csproj" />
+  </Folder>
+</Solution>

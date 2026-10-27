@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+
+# Editors / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+
+# Local env
+.env
+.env.local
+
+# Claude Code worktrees
+.claude/worktrees/

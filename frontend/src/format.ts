@@ -11,9 +11,18 @@ export function formatMoney(value: number, currency: string, locale?: string): s
   return f.format(value);
 }
 
-/** Short money for axes: 1,2 tys. zł / 1.2K PLN. */
-export function formatMoneyCompact(value: number, currency: string, locale?: string): string {
-  return new Intl.NumberFormat(locale, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(value);
+/**
+ * Money for chart axes: whole units (PLN 5,100), compact only for big values (PLN 120K).
+ * Compact notation with one decimal collapses close ticks into duplicates (5,350 and 5,400 → 5.4K).
+ */
+export function formatMoneyAxis(value: number, currency: string, locale?: string): string {
+  const big = Math.abs(value) >= 100_000;
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    notation: big ? 'compact' : 'standard',
+    maximumFractionDigits: big ? 1 : 0,
+  }).format(value);
 }
 
 export function formatDay(isoDay: string, locale?: string, opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' }): string {

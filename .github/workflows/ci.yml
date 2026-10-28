@@ -45,6 +45,7 @@ jobs:
       - name: Generated API types match the OpenAPI document
         run: npm run gen:api && git diff --exit-code -- src/api/schema.d.ts
       - run: npm run lint
+      - run: npm run lint:i18n
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

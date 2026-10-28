@@ -7,7 +7,11 @@ You don't track a product. You track a requirement, like "any 2×16 GB DDR5 kit 
 - Limit a list to the shops you care about, and add your personal discount per shop.
 - Poland first. Markets are data, so Ukraine or any other country means adding a row plus a price source.
 
-![List page](docs/screenshot.png)
+| Light | Dark |
+|---|---|
+| ![List page, light](docs/screenshots/list-light.png) | ![List page, dark](docs/screenshots/list-dark.png) |
+
+More screens are in [docs/screenshots](docs/screenshots): the lists overview, the item editor and the phone layout. The UI follows the same design language as the sibling apps (abook, nopds…); see [docs/research/sibling-ui-design.md](docs/research/sibling-ui-design.md).
 
 ## Stack
 
@@ -15,7 +19,7 @@ You don't track a product. You track a requirement, like "any 2×16 GB DDR5 kit 
 |---|---|
 | API | .NET 10 minimal APIs, EF Core 10, ASP.NET Core Identity, JWT access tokens and rotating refresh tokens |
 | Collector | .NET console app, run on a schedule; pluggable `IPriceSource` per market |
-| UI | React 19 + TypeScript + Vite, TanStack Query, React Router, Recharts, typed client generated from OpenAPI |
+| UI | React 19 + TypeScript + Vite, Tailwind v4, TanStack Query, React Router, Recharts, i18next (en/pl/uk), lucide icons, typed client generated from OpenAPI |
 | Data | SQL Server locally, Azure SQL Database (free offer) in the cloud |
 | Hosting | Azure Container Apps (UI nginx app, internal API app, collector and migrate jobs), images on GHCR, Bicep |
 

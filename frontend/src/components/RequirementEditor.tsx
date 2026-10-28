@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Pin } from 'lucide-react';
+import clsx from 'clsx';
 import { api, errorMessage, unwrap, type Schemas } from '../api/client';
 import { formatMoney } from '../format';
 import { useI18n } from '../i18n';
 import { useCategories } from '../queries';
 import { emptyField, fromConstraints, toConstraints, type FieldState } from '../specs';
+import { Segmented, Spinner } from './ui';
 
 interface Props {
   list: Schemas['ListDto'];
@@ -25,6 +28,7 @@ function useDebounced<T>(value: T, ms = 300): T {
   return debounced;
 }
 
+/** Body of the add/edit item modal: category, specs as constraints, and a live preview of what matches. */
 export function RequirementEditor({ list, currency, requirement, onSaved, onCancel }: Props) {
   const { t, locale } = useI18n();
   const categories = useCategories();
@@ -71,110 +75,121 @@ export function RequirementEditor({ list, currency, requirement, onSaved, onCanc
   }
 
   return (
-    <div className="editor card">
-      <h3>{requirement ? t('editItem') : t('addItem')}</h3>
-
-      <div className="form-row">
-        <label>
-          {t('category')}
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-[14rem_1fr_6rem]">
+        <label className="block">
+          <span className="label">{t('editor.category')}</span>
           <select
+            className="input"
             value={categoryId}
+            autoFocus={!requirement}
             onChange={(e) => {
               setCategoryId(e.target.value);
               setFields({});
               setPinned(null);
             }}
           >
-            <option value="" disabled>
-              —
-            </option>
+            <option value="" disabled>{t('editor.pickCategory')}</option>
             {leaves.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </label>
-        <label className="grow">
-          {t('title')}
-          <input value={title} placeholder={category?.name} onChange={(e) => setTitle(e.target.value)} maxLength={200} />
+        <label className="block">
+          <span className="label">{t('editor.title')}</span>
+          <input className="input" value={title} placeholder={category?.name} onChange={(e) => setTitle(e.target.value)} maxLength={200} />
         </label>
-        <label className="narrow">
-          {t('quantity')}
-          <input type="number" min={1} max={100} value={quantity} onChange={(e) => setQuantity(Number(e.target.value) || 1)} />
+        <label className="block">
+          <span className="label">{t('editor.quantity')}</span>
+          <input className="input" type="number" min={1} max={100} value={quantity} onChange={(e) => setQuantity(Number(e.target.value) || 1)} />
         </label>
       </div>
 
       {category && (
-        <div className="spec-grid">
-          {defs.map((d) => {
-            const f = fields[d.key] ?? emptyField();
-            return (
-              <div key={d.key} className="spec">
-                <span className="spec-label">
-                  {d.label}
-                  {d.unit && <span className="muted"> ({d.unit})</span>}
-                </span>
-                {d.type === 'number' && (
-                  <span className="range">
-                    <input inputMode="decimal" placeholder={t('min')} value={f.min} onChange={(e) => setField(d.key, { min: e.target.value })} />
-                    <span className="muted">–</span>
-                    <input inputMode="decimal" placeholder={t('max')} value={f.max} onChange={(e) => setField(d.key, { max: e.target.value })} />
+        <div>
+          <div className="mb-2 flex flex-wrap items-baseline gap-2">
+            <h3 className="font-semibold">{t('editor.specs')}</h3>
+            <span className="text-xs muted">{t('editor.specsHint')}</span>
+          </div>
+          <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+            {defs.map((d) => {
+              const f = fields[d.key] ?? emptyField();
+              return (
+                <div key={d.key}>
+                  <span className="label">
+                    {d.label}
+                    {d.unit && <span className="font-normal"> ({d.unit})</span>}
                   </span>
-                )}
-                {d.type === 'enum' && (
-                  <span className="chips">
-                    {(d.allowedValues ?? []).map((v) => {
-                      const on = f.values.includes(v);
-                      return (
-                        <button
-                          key={v}
-                          type="button"
-                          className={on ? 'chip on' : 'chip'}
-                          aria-pressed={on}
-                          onClick={() => setField(d.key, { values: on ? f.values.filter((x) => x !== v) : [...f.values, v] })}
-                        >
-                          {v}
-                        </button>
-                      );
-                    })}
-                  </span>
-                )}
-                {d.type === 'bool' && (
-                  <select value={f.bool} onChange={(e) => setField(d.key, { bool: e.target.value as FieldState['bool'] })}>
-                    <option value="">{t('any')}</option>
-                    <option value="true">{t('yes')}</option>
-                    <option value="false">{t('no')}</option>
-                  </select>
-                )}
-                {d.type === 'text' && (
-                  <input placeholder={t('contains')} value={f.text} onChange={(e) => setField(d.key, { text: e.target.value })} />
-                )}
-              </div>
-            );
-          })}
+                  {d.type === 'number' && (
+                    <div className="flex items-center gap-2">
+                      <input className="input" inputMode="decimal" placeholder={t('editor.min')} value={f.min} onChange={(e) => setField(d.key, { min: e.target.value })} aria-label={`${d.label} ${t('editor.min')}`} />
+                      <span className="muted">–</span>
+                      <input className="input" inputMode="decimal" placeholder={t('editor.max')} value={f.max} onChange={(e) => setField(d.key, { max: e.target.value })} aria-label={`${d.label} ${t('editor.max')}`} />
+                    </div>
+                  )}
+                  {d.type === 'enum' && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {(d.allowedValues ?? []).map((v) => {
+                        const on = f.values.includes(v);
+                        return (
+                          <button
+                            key={v}
+                            type="button"
+                            className={clsx('chip px-2.5 py-1 text-sm', on && 'chip-on')}
+                            aria-pressed={on}
+                            onClick={() => setField(d.key, { values: on ? f.values.filter((x) => x !== v) : [...f.values, v] })}
+                          >
+                            {v}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {d.type === 'bool' && (
+                    <Segmented
+                      value={f.bool}
+                      onChange={(bool) => setField(d.key, { bool })}
+                      options={[
+                        { value: '' as const, label: t('editor.any') },
+                        { value: 'true' as const, label: t('editor.yes') },
+                        { value: 'false' as const, label: t('editor.no') },
+                      ]}
+                      label={d.label}
+                    />
+                  )}
+                  {d.type === 'text' && (
+                    <input className="input" placeholder={t('editor.contains')} value={f.text} onChange={(e) => setField(d.key, { text: e.target.value })} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {category && preview.data && (
-        <div className="preview">
-          <div className="preview-head">
-            <strong>
-              {t('matchingProducts')}: {preview.data.total}
-            </strong>
+      {category && (
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold">{t('editor.matching', { count: preview.data?.total ?? 0 })}</h3>
+            {preview.isFetching && <Spinner className="h-4 w-4" />}
             {pinned && (
-              <button type="button" className="link" onClick={() => setPinned(null)}>
-                {t('unpin')}
+              <button type="button" className="btn-ghost ml-auto py-0.5 text-xs" onClick={() => setPinned(null)}>
+                {t('editor.unpin')}
               </button>
             )}
           </div>
-          <ul>
-            {preview.data.items.map((p) => (
-              <li key={p.id} className={pinned === p.id ? 'pinned' : undefined}>
-                <span className="grow">{p.name}</span>
-                <span className="num">{p.lowestPrice == null ? '—' : formatMoney(p.lowestPrice, currency, locale)}</span>
-                <button type="button" className="link" onClick={() => setPinned(p.id)} disabled={pinned === p.id}>
-                  {pinned === p.id ? t('pinned') : t('onlyThis')}
+          <ul className="divide-y divide-line rounded-md border border-line">
+            {preview.data?.items.map((p) => (
+              <li key={p.id} className={clsx('flex items-center gap-3 px-3 py-2 text-sm', pinned === p.id && 'bg-accent-faint')}>
+                <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                <span className="num font-medium">{p.lowestPrice == null ? '—' : formatMoney(p.lowestPrice, currency, locale)}</span>
+                <button
+                  type="button"
+                  className={clsx('btn-ghost px-2 py-0.5 text-xs', pinned === p.id && 'text-accent')}
+                  onClick={() => setPinned(p.id)}
+                  disabled={pinned === p.id}
+                >
+                  <Pin className="h-3.5 w-3.5" /> {pinned === p.id ? t('editor.pinned') : t('editor.pin')}
                 </button>
               </li>
             ))}
@@ -182,14 +197,10 @@ export function RequirementEditor({ list, currency, requirement, onSaved, onCanc
         </div>
       )}
 
-      {error && <p className="error">{error}</p>}
-      <div className="actions">
-        <button type="button" onClick={onCancel}>
-          {t('cancel')}
-        </button>
-        <button type="button" className="primary" onClick={save} disabled={!categoryId || saving}>
-          {t('save')}
-        </button>
+      {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+      <div className="flex justify-end gap-2 border-t border-line pt-4">
+        <button type="button" className="btn-ghost" onClick={onCancel}>{t('common.cancel')}</button>
+        <button type="button" className="btn-primary" onClick={save} disabled={!categoryId || saving}>{t('common.save')}</button>
       </div>
     </div>
   );

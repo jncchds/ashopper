@@ -1,7 +1,30 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { api, errorMessage } from '../api/client';
+import { Logo } from '../components/Logo';
 import { useI18n } from '../i18n';
+
+function AccountCard({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-dvh items-center justify-center px-4">
+      <div className="card w-full max-w-sm space-y-4 p-6">
+        <div className="flex justify-center">
+          <Logo className="h-10 w-10" />
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Result({ result }: { result: { ok: boolean; text: string } | null }) {
+  if (!result) return null;
+  return (
+    <p className={result.ok ? 'text-sm text-success' : 'text-sm text-danger'} role={result.ok ? 'status' : 'alert'}>
+      {result.text}
+    </p>
+  );
+}
 
 /** Target of the link in the confirmation email. */
 export function ConfirmEmailPage() {
@@ -12,18 +35,16 @@ export function ConfirmEmailPage() {
   useEffect(() => {
     const userId = params.get('userId') ?? '';
     const code = params.get('code') ?? '';
-    void api.GET('/auth/confirm-email', { params: { query: { userId, code } } }).then(({ error }) =>
-      setResult(error ? { ok: false, text: errorMessage(error) } : { ok: true, text: t('emailConfirmed') }),
+    void api.GET('/auth/confirm-email', { params: { query: { userId, code } } }).then(({ error, response }) =>
+      setResult(response.ok ? { ok: true, text: t('auth.emailConfirmed') } : { ok: false, text: errorMessage(error) }),
     );
   }, [params, t]);
 
   return (
-    <main className="auth-page">
-      <div className="card auth-card">
-        {result && <p className={result.ok ? 'ok' : 'error'}>{result.text}</p>}
-        <Link to="/login">{t('signIn')}</Link>
-      </div>
-    </main>
+    <AccountCard>
+      <Result result={result} />
+      <Link to="/login" className="btn-primary w-full">{t('auth.signIn')}</Link>
+    </AccountCard>
   );
 }
 
@@ -36,24 +57,24 @@ export function ResetPasswordPage() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const { error } = await api.POST('/auth/reset-password', {
+    const { error, response } = await api.POST('/auth/reset-password', {
       body: { email: params.get('email') ?? '', code: params.get('code') ?? '', newPassword: password },
     });
-    setResult(error ? { ok: false, text: errorMessage(error) } : { ok: true, text: t('passwordChanged') });
+    setResult(response.ok ? { ok: true, text: t('auth.passwordChanged') } : { ok: false, text: errorMessage(error) });
   }
 
   return (
-    <main className="auth-page">
-      <form className="card auth-card" onSubmit={submit}>
-        <h1>{t('resetPassword')}</h1>
-        <label>
-          {t('newPassword')}
-          <input type="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+    <AccountCard>
+      <form className="space-y-4" onSubmit={submit}>
+        <h1 className="text-center text-xl font-semibold">{t('auth.resetPassword')}</h1>
+        <label className="block">
+          <span className="label">{t('auth.newPassword')}</span>
+          <input className="input" type="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
-        {result && <p className={result.ok ? 'ok' : 'error'}>{result.text}</p>}
-        <button type="submit" className="primary">{t('save')}</button>
-        <Link to="/login">{t('signIn')}</Link>
+        <Result result={result} />
+        <button type="submit" className="btn-primary w-full">{t('common.save')}</button>
+        <Link to="/login" className="block text-center text-sm link">{t('auth.signIn')}</Link>
       </form>
-    </main>
+    </AccountCard>
   );
 }

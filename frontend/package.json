@@ -1,24 +1,32 @@
 {
   "name": "ashopper-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "oxlint",
+    "lint": "oxlint src",
+    "lint:i18n": "node scripts/check-locales.mjs",
     "test": "vitest run",
     "typecheck": "tsc -b",
     "gen:api": "npx -y openapi-typescript@7.13.0 ../backend/src/Ashopper.Api/openapi/ashopper.json -o src/api/schema.d.ts"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.105.0",
+    "clsx": "^2.1.1",
+    "i18next": "^26.5.11",
+    "lucide-react": "^1.63.0",
     "openapi-fetch": "^0.17.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-i18next": "^17.1.9",
     "react-router": "^8.5.1",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",

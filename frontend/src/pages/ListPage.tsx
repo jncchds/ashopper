@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ExternalLink, Pencil, Plus, Trash2 } from 'lucide-react';
+import clsx from 'clsx';
 import { api, unwrap, type Schemas } from '../api/client';
 import { PriceChart } from '../components/PriceChart';
 import { RequirementEditor } from '../components/RequirementEditor';
+import { Empty, ErrorBox, Loading, Modal, PageTitle, Section, Segmented } from '../components/ui';
 import { formatMoney, isoDay } from '../format';
 import { useI18n } from '../i18n';
 import { useCategories, useCurrent, useHistory, useList, useMarkets, useShops } from '../queries';
@@ -34,8 +37,6 @@ export function ListPage() {
   const shops = useShops(list.data?.marketCode);
   const market = useMarkets().data?.find((m) => m.code === list.data?.marketCode);
   const currency = market?.currency ?? 'PLN';
-  // Currency comes from the list's market; number formatting follows the UI language, everywhere.
-  const moneyLocale = locale;
 
   /** Anything that changes prices (items, shops) invalidates the list's derived queries. */
   const refresh = (updated?: Schemas['ListDto']) => {
@@ -64,11 +65,12 @@ export function ListPage() {
     },
   });
 
-  if (list.isLoading) return <main className="page" aria-busy="true" />;
-  if (!list.data) return <main className="page"><p className="error">{list.error?.message}</p></main>;
+  if (list.isLoading) return <Loading />;
+  if (!list.data) return <ErrorBox error={list.error ?? 'Not found'} />;
 
   const l = list.data;
   const best = new Map(current.data?.items.map((i) => [i.requirementId, i.best]) ?? []);
+  const money = (v: number) => formatMoney(v, currency, locale);
   const toggleShop = (shopId: string) => {
     const set = new Set(l.allowedShopIds);
     if (set.has(shopId)) set.delete(shopId);
@@ -77,43 +79,141 @@ export function ListPage() {
   };
 
   return (
-    <main className="page">
-      <Link to="/" className="small muted">← {t('lists')}</Link>
-      <div className="page-head">
-        <h1>{l.name}</h1>
-        {current.data && (
-          <div className="headline">
-            <span className="muted small">{t('totalNow')}</span>
-            <strong>{formatMoney(current.data.total, currency, moneyLocale)}</strong>
-            {!current.data.complete && l.requirements.length > 0 && <span className="warn small">{t('incomplete')}</span>}
+    <>
+      <PageTitle
+        subtitle={market ? `${market.name} · ${market.currency}` : undefined}
+        actions={
+          <>
+            <button type="button" className="btn-primary" onClick={() => setEditing('new')}>
+              <Plus className="h-4 w-4" /> {t('list.addItem')}
+            </button>
+            <button
+              type="button"
+              className="btn-danger"
+              title={t('list.deleteList')}
+              onClick={() => window.confirm(t('common.confirmDelete', { name: l.name })) && removeList.mutate()}
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="max-sm:sr-only">{t('list.deleteList')}</span>
+            </button>
+          </>
+        }
+      >
+        {l.name}
+      </PageTitle>
+
+      <div className="space-y-6">
+        {current.data && l.requirements.length > 0 && (
+          <div className="card flex flex-wrap items-baseline gap-x-4 gap-y-1 p-4">
+            <span className="caps">{t('list.totalNow')}</span>
+            <span className="text-3xl font-semibold tabular-nums">{money(current.data.total)}</span>
+            {!current.data.complete && <span className="text-sm text-warning">⚠ {t('list.incomplete')}</span>}
           </div>
         )}
+
+        {l.requirements.length > 0 && (
+          <Section
+            title={t('list.priceHistory')}
+            actions={
+              <Segmented
+                value={range}
+                onChange={setRange}
+                options={RANGES.map((r) => ({ value: r, label: t('list.days', { count: r }) }))}
+                label={t('list.priceHistory')}
+              />
+            }
+          >
+            {history.isLoading && <Loading />}
+            {history.data && <PriceChart history={history.data} requirements={l.requirements} shops={shops.data ?? []} />}
+          </Section>
+        )}
+
+        <Section title={t('list.items')}>
+          {l.requirements.length === 0 ? (
+            <Empty>
+              <p>{t('list.noItems')}</p>
+              <button type="button" className="btn-primary mt-4" onClick={() => setEditing('new')}>
+                <Plus className="h-4 w-4" /> {t('list.addItem')}
+              </button>
+            </Empty>
+          ) : (
+            <ul className="divide-y divide-line rounded-md border border-line">
+              {l.requirements.map((r) => {
+                const offer = best.get(r.id);
+                const defs = categories.data?.find((c) => c.id === r.categoryId)?.attributes ?? [];
+                const specs = r.pinnedProductId ? t('list.pinned') : describeConstraints(r.constraints, defs);
+                return (
+                  <li key={r.id} className="flex flex-wrap items-start gap-x-4 gap-y-2 p-3 sm:flex-nowrap">
+                    <div className="min-w-0 flex-1 basis-full sm:basis-auto">
+                      <div className="font-semibold">
+                        {r.quantity > 1 && <span className="mr-1 text-accent">{r.quantity}×</span>}
+                        {r.title}
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {(specs || t('list.anySpec')).split(' · ').map((s) => (
+                          <span key={s} className="pill-muted">{s}</span>
+                        ))}
+                        <span className={clsx('pill-muted', r.matchCount === 0 && 'text-danger')}>{t('list.matches', { count: r.matchCount })}</span>
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1 text-sm">
+                      {offer ? (
+                        <>
+                          <a href={offer.url} target="_blank" rel="noreferrer noopener" className="link flex min-w-0 items-center gap-1" title={offer.productName}>
+                            <span className="truncate">{offer.productName}</span>
+                            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                          </a>
+                          <div className="truncate text-xs muted">
+                            {offer.shopName}
+                            {offer.effectivePrice < offer.price && <> · <s>{money(offer.price)}</s></>}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="muted">{t('list.noOffer')}</span>
+                      )}
+                    </div>
+                    <div className="num w-28 shrink-0 font-semibold">{offer ? money(offer.linePrice) : '—'}</div>
+                    <div className="flex shrink-0 gap-1">
+                      <button type="button" className="btn-ghost px-2" title={t('common.edit')} aria-label={t('common.edit')} onClick={() => setEditing(r)}>
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-ghost px-2 hover:text-danger"
+                        title={t('common.delete')}
+                        aria-label={t('common.delete')}
+                        onClick={() => window.confirm(t('common.confirmDelete', { name: r.title })) && removeItem.mutate(r.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Section>
+
+        <Section title={t('list.shops')} hint={t('list.shopsHint')}>
+          <div className="flex flex-wrap items-center gap-2">
+            {shops.data?.map((s) => {
+              const on = l.allowedShopIds.includes(s.id);
+              return (
+                <button key={s.id} type="button" className={clsx('chip px-3 py-1 text-sm', on && 'chip-on')} aria-pressed={on} onClick={() => toggleShop(s.id)}>
+                  {s.name}
+                </button>
+              );
+            })}
+            {l.allowedShopIds.length > 0 && (
+              <button type="button" className="btn-ghost py-1 text-xs" onClick={() => updateShops.mutate([])}>
+                {t('list.allShops')}
+              </button>
+            )}
+          </div>
+        </Section>
       </div>
 
-      <section className="card">
-        <div className="section-head">
-          <h2>{t('priceHistory')}</h2>
-          <div className="segmented" role="group">
-            {RANGES.map((r) => (
-              <button key={r} type="button" className={r === range ? 'on' : ''} aria-pressed={r === range} onClick={() => setRange(r)}>
-                {r} {t('days')}
-              </button>
-            ))}
-          </div>
-        </div>
-        {history.data && l.requirements.length > 0 && <PriceChart history={history.data} requirements={l.requirements} shops={shops.data ?? []} />}
-      </section>
-
-      <section className="card">
-        <div className="section-head">
-          <h2>{t('requirements')}</h2>
-          {editing === null && (
-            <button type="button" className="primary" onClick={() => setEditing('new')}>
-              {t('addItem')}
-            </button>
-          )}
-        </div>
-
+      <Modal open={editing !== null} onClose={() => setEditing(null)} title={editing === 'new' ? t('editor.addItem') : t('editor.editItem')} wide>
         {editing !== null && (
           <RequirementEditor
             list={l}
@@ -126,82 +226,7 @@ export function ListPage() {
             }}
           />
         )}
-
-        <div className="table-scroll">
-          <table className="items">
-            <thead>
-              <tr>
-                <th>{t('item')}</th>
-                <th>{t('bestOffer')}</th>
-                <th className="num">{t('total')}</th>
-                <th aria-label="actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {l.requirements.map((r) => {
-                const offer = best.get(r.id);
-                const defs = categories.data?.find((c) => c.id === r.categoryId)?.attributes ?? [];
-                return (
-                  <tr key={r.id}>
-                    <td>
-                      <strong>{r.quantity > 1 ? `${r.quantity}× ` : ''}{r.title}</strong>
-                      <div className="muted small">
-                        {r.pinnedProductId ? t('pinned') : describeConstraints(r.constraints, defs) || t('any')} · {r.matchCount} {t('matches')}
-                      </div>
-                    </td>
-                    <td>
-                      {offer ? (
-                        <>
-                          <a href={offer.url} target="_blank" rel="noreferrer noopener">{offer.productName}</a>
-                          <div className="muted small">
-                            {offer.shopName}
-                            {offer.effectivePrice < offer.price && <> · <s>{formatMoney(offer.price, currency, moneyLocale)}</s></>}
-                          </div>
-                        </>
-                      ) : (
-                        <span className="muted">{t('noOffer')}</span>
-                      )}
-                    </td>
-                    <td className="num">{offer ? formatMoney(offer.linePrice, currency, moneyLocale) : '—'}</td>
-                    <td className="row-actions">
-                      <button type="button" className="link" onClick={() => setEditing(r)}>{t('edit')}</button>
-                      <button
-                        type="button"
-                        className="link danger"
-                        onClick={() => window.confirm(t('confirmDelete')) && removeItem.mutate(r.id)}
-                      >
-                        {t('delete')}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="card">
-        <h2>{t('shops')}</h2>
-        <p className="muted small">{t('shopsHint')}</p>
-        <div className="chips">
-          {shops.data?.map((s) => {
-            const on = l.allowedShopIds.includes(s.id);
-            return (
-              <button key={s.id} type="button" className={on ? 'chip on' : 'chip'} aria-pressed={on} onClick={() => toggleShop(s.id)}>
-                {s.name}
-              </button>
-            );
-          })}
-          {l.allowedShopIds.length > 0 && (
-            <button type="button" className="link" onClick={() => updateShops.mutate([])}>{t('allShops')}</button>
-          )}
-        </div>
-      </section>
-
-      <button type="button" className="link danger" onClick={() => window.confirm(t('confirmDelete')) && removeList.mutate()}>
-        {t('delete')} “{l.name}”
-      </button>
-    </main>
+      </Modal>
+    </>
   );
 }

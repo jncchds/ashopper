@@ -27,10 +27,10 @@ public static class CatalogEndpoints
     public static void MapCatalogEndpoints(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api").WithTags("Catalog");
-        api.MapGet("/markets", GetMarketsAsync).CacheOutput(HttpCaching.CatalogPolicy);
-        api.MapGet("/categories", GetCategoriesAsync).CacheOutput(HttpCaching.CatalogPolicy);
-        api.MapGet("/shops", GetShopsAsync).CacheOutput(HttpCaching.CatalogPolicy);
-        api.MapPost("/products/search", SearchProductsAsync);
+        api.MapGet("/markets", GetMarketsAsync).CacheOutput(HttpCaching.CatalogPolicy).Produces<List<MarketDto>>();
+        api.MapGet("/categories", GetCategoriesAsync).CacheOutput(HttpCaching.CatalogPolicy).Produces<List<CategoryDto>>();
+        api.MapGet("/shops", GetShopsAsync).CacheOutput(HttpCaching.CatalogPolicy).Produces<List<ShopDto>>();
+        api.MapPost("/products/search", SearchProductsAsync).Produces<ProductSearchResult>();
     }
 
     private static async Task<IResult> GetMarketsAsync(HttpContext http, AppDbContext db, ListPricingQuery pricing, CancellationToken ct)
@@ -81,14 +81,18 @@ public static class CatalogEndpoints
             from o in db.Offers
             join s in db.Shops on o.ShopId equals s.Id
             join d in db.DailyPrices on o.Id equals d.OfferId
-            where ids.Contains(o.ProductId) && s.MarketCode == req.MarketCode && d.Day >= since && d.InStock
-            select new { o.ProductId, o.ShopId, OfferId = o.Id, d.MinPrice };
+            where ids.Contains(o.ProductId) && s.MarketCode == req.MarketCode && d.Day >= since
+            select new { o.ProductId, o.ShopId, OfferId = o.Id, d.Day, d.MinPrice, d.InStock };
         if (shopIds.Count > 0)
             priceQuery = priceQuery.Where(x => shopIds.Contains(x.ShopId));
 
+        // Same rule as list pricing: each offer's latest reading counts, and only if it's in stock.
         var prices = (await priceQuery.ToListAsync(ct))
+            .GroupBy(x => x.OfferId)
+            .Select(g => g.MaxBy(x => x.Day)!)
+            .Where(x => x.InStock)
             .GroupBy(x => x.ProductId)
-            .ToDictionary(g => g.Key, g => (Min: g.Min(x => x.MinPrice), Offers: g.Select(x => x.OfferId).Distinct().Count()));
+            .ToDictionary(g => g.Key, g => (Min: g.Min(x => x.MinPrice), Offers: g.Count()));
 
         var items = matched
             .Select(p => new ProductDto(p.Id, p.Name, p.Brand, p.Model, p.Attributes,

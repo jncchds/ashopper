@@ -73,7 +73,7 @@ public sealed class FakePriceSource(TimeProvider time) : IPriceSource, IHistoric
         var phase = seed % 1000 / 1000.0 * 2 * Math.PI;
         var wave = 1 + 0.06 * Math.Sin(2 * Math.PI * t / period + phase);
         var drift = 1 - 0.00012 * t;                               // ~4% cheaper per year
-        var noise = 1 + ((Hash(offerId, t.ToString()) % 200) - 100) / 10000.0; // ±1%
+        var noise = 1 + ((int)(Hash(offerId, t.ToString()) % 200) - 100) / 10000.0; // ±1% (int first: uint would wrap)
         var promo = Hash(offerId, (t / 7).ToString()) % 11 == 0 ? 0.88 : 1.0; // some weeks are sales
 
         var raw = (double)(item.BasePricePln * shop.Factor * rate) * wave * drift * noise * promo;

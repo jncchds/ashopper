@@ -1,0 +1,40 @@
+name: Deploy infrastructure
+
+# Manual: creates/updates all Azure resources from infra/main.bicep.
+# Run once before the first app deploy (images default to :latest), and whenever infra changes.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy Bicep
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          owner=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          az deployment group create \
+            -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            -f infra/main.bicep \
+            -p prefix="${{ vars.APP_PREFIX || 'ashopper' }}" \
+               apiImage="ghcr.io/$owner/ashopper-api:latest" \
+               uiImage="ghcr.io/$owner/ashopper-ui:latest" \
+               collectorImage="ghcr.io/$owner/ashopper-collector:latest" \
+               registryUsername="${{ vars.GHCR_USERNAME }}" \
+               registryPassword="${{ secrets.GHCR_TOKEN }}" \
+               sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}" \
+               jwtSigningKey="${{ secrets.JWT_SIGNING_KEY }}" \
+            --query properties.outputs -o json

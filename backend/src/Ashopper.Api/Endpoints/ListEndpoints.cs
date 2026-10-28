@@ -31,16 +31,16 @@ public static class ListEndpoints
     public static void MapListEndpoints(this IEndpointRouteBuilder app)
     {
         var lists = app.MapGroup("/api/lists").WithTags("Lists").RequireAuthorization();
-        lists.MapGet("/", GetListsAsync);
-        lists.MapPost("/", CreateListAsync);
-        lists.MapGet("/{id:guid}", GetListAsync);
-        lists.MapPut("/{id:guid}", UpdateListAsync);
-        lists.MapDelete("/{id:guid}", DeleteListAsync);
-        lists.MapPost("/{id:guid}/requirements", AddRequirementAsync);
-        lists.MapPut("/{id:guid}/requirements/{requirementId:guid}", UpdateRequirementAsync);
-        lists.MapDelete("/{id:guid}/requirements/{requirementId:guid}", DeleteRequirementAsync);
-        lists.MapGet("/{id:guid}/history", GetHistoryAsync);
-        lists.MapGet("/{id:guid}/current", GetCurrentAsync);
+        lists.MapGet("/", GetListsAsync).Produces<List<ListSummaryDto>>();
+        lists.MapPost("/", CreateListAsync).Produces<ListDto>(StatusCodes.Status201Created);
+        lists.MapGet("/{id:guid}", GetListAsync).Produces<ListDto>();
+        lists.MapPut("/{id:guid}", UpdateListAsync).Produces<ListDto>();
+        lists.MapDelete("/{id:guid}", DeleteListAsync).Produces(StatusCodes.Status204NoContent);
+        lists.MapPost("/{id:guid}/requirements", AddRequirementAsync).Produces<ListDto>();
+        lists.MapPut("/{id:guid}/requirements/{requirementId:guid}", UpdateRequirementAsync).Produces<ListDto>();
+        lists.MapDelete("/{id:guid}/requirements/{requirementId:guid}", DeleteRequirementAsync).Produces(StatusCodes.Status204NoContent);
+        lists.MapGet("/{id:guid}/history", GetHistoryAsync).Produces<HistoryDto>();
+        lists.MapGet("/{id:guid}/current", GetCurrentAsync).Produces<CurrentDto>();
     }
 
     private static async Task<IResult> GetListsAsync(HttpContext http, AppDbContext db, CancellationToken ct)

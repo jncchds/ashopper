@@ -30,9 +30,9 @@ public static class PriceHistoryCalculator
         DateOnly to,
         int carryForwardDays = 2)
     {
-        // requirement → offer → day → price
+        // requirement → offer → day → price. Out-of-stock readings are kept: they must override older
+        // in-stock readings during carry-forward, not be skipped over.
         var byRequirement = prices
-            .Where(p => p.InStock)
             .GroupBy(p => p.RequirementId)
             .ToDictionary(
                 g => g.Key,
@@ -54,7 +54,7 @@ public static class PriceHistoryCalculator
                 {
                     foreach (var offerDays in offers)
                     {
-                        if (FindReading(offerDays, day, carryForwardDays) is not { } reading)
+                        if (FindReading(offerDays, day, carryForwardDays) is not { InStock: true } reading)
                             continue;
                         var effective = Discount.Apply(reading.Price, discountPercentByShop.GetValueOrDefault(reading.ShopId));
                         if (best is null || effective < bestPrice)

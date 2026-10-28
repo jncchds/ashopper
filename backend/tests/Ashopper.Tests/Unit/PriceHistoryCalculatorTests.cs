@@ -64,6 +64,18 @@ public class PriceHistoryCalculatorTests
     }
 
     [Fact]
+    public void Latest_out_of_stock_reading_is_not_replaced_by_an_older_in_stock_one()
+    {
+        var points = PriceHistoryCalculator.Calculate(
+            [new(Ram, 1)],
+            [P(Ram, OfferA, ShopA, D1, 80), P(Ram, OfferA, ShopA, D2, 80, inStock: false), P(Ram, OfferB, ShopB, D2, 100)],
+            NoDiscounts, D2, D2);
+
+        Assert.Equal(OfferB, points.Single().Items[0].OfferId);
+        Assert.Equal(100, points.Single().Total);
+    }
+
+    [Fact]
     public void Empty_list_is_never_complete()
     {
         var day = PriceHistoryCalculator.Calculate([], [], NoDiscounts, D1, D1).Single();

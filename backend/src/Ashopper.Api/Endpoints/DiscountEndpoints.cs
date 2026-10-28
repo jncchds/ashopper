@@ -19,7 +19,7 @@ public static class DiscountEndpoints
             var userId = http.User.GetUserId();
             return Results.Ok(await db.UserShopDiscounts.AsNoTracking().Where(d => d.UserId == userId)
                 .Select(d => new ShopDiscountDto(d.ShopId, d.Percent)).ToListAsync(ct));
-        });
+        }).Produces<List<ShopDiscountDto>>();
 
         group.MapPut("/{shopId:guid}", async (Guid shopId, SetDiscountRequest req, HttpContext http, AppDbContext db, TimeProvider time, CancellationToken ct) =>
         {
@@ -39,13 +39,13 @@ public static class DiscountEndpoints
             discount.UpdatedAt = time.GetUtcNow();
             await db.SaveChangesAsync(ct);
             return Results.Ok(new ShopDiscountDto(shopId, discount.Percent));
-        });
+        }).Produces<ShopDiscountDto>();
 
         group.MapDelete("/{shopId:guid}", async (Guid shopId, HttpContext http, AppDbContext db, CancellationToken ct) =>
         {
             var userId = http.User.GetUserId();
             await db.UserShopDiscounts.Where(d => d.UserId == userId && d.ShopId == shopId).ExecuteDeleteAsync(ct);
             return Results.NoContent();
-        });
+        }).Produces(StatusCodes.Status204NoContent);
     }
 }

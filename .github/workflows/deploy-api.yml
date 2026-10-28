@@ -1,0 +1,85 @@
+name: Deploy API + collector
+
+# Builds the backend images, runs DB migrations as a one-off job, then rolls out the API and collector.
+on:
+  push:
+    branches: [main]
+    paths: [backend/**, .github/workflows/deploy-api.yml]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write # OIDC login to Azure: no stored Azure credentials
+
+env:
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
+  RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+  PREFIX: ${{ vars.APP_PREFIX || 'ashopper' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          target: api
+          push: true
+          tags: ${{ env.REGISTRY }}/ashopper-api:${{ github.sha }},${{ env.REGISTRY }}/ashopper-api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build and push collector image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          target: collector
+          push: true
+          tags: ${{ env.REGISTRY }}/ashopper-collector:${{ github.sha }},${{ env.REGISTRY }}/ashopper-collector:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=collector
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Migrate database
+        run: |
+          set -euo pipefail
+          job="$PREFIX-migrate"
+          az containerapp job update -g "$RG" -n "$job" --image "$REGISTRY/ashopper-collector:${{ github.sha }}" -o none
+          execution=$(az containerapp job start -g "$RG" -n "$job" --query name -o tsv)
+          echo "Started $execution"
+          for _ in $(seq 1 60); do
+            status=$(az containerapp job execution show -g "$RG" -n "$job" --job-execution-name "$execution" --query properties.status -o tsv)
+            echo "status: $status"
+            case "$status" in
+              Succeeded) exit 0 ;;
+              Failed|Stopped|Degraded) exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "Migration timed out"; exit 1
+
+      - name: Roll out API and collector
+        run: |
+          set -euo pipefail
+          az containerapp update -g "$RG" -n "$PREFIX-api" --image "$REGISTRY/ashopper-api:${{ github.sha }}" -o none
+          az containerapp job update -g "$RG" -n "$PREFIX-collector" --image "$REGISTRY/ashopper-collector:${{ github.sha }}" -o none

@@ -1,0 +1,70 @@
+# Rendered by the nginx image's entrypoint (envsubst) at container start.
+#   API_UPSTREAM            where /api and /auth go, e.g. http://ashopper-api (Container Apps internal name)
+#   NGINX_LOCAL_RESOLVERS   filled in by the image from /etc/resolv.conf (NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1)
+
+# Container Apps terminates TLS before nginx and sends X-Forwarded-Proto; keep it, or fall back to our scheme.
+map $http_x_forwarded_proto $forwarded_proto {
+    default $http_x_forwarded_proto;
+    ''      $scheme;
+}
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    server_tokens off;
+
+    # Re-resolve the API's address (replicas/revisions change IPs) instead of caching it forever.
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=30s ipv6=off;
+    set $api_upstream ${API_UPSTREAM};
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    open_file_cache max=1000 inactive=60s;
+    open_file_cache_valid 60s;
+
+    include /etc/nginx/snippets/security-headers.conf;
+
+    # Vite emits content-hashed file names here: a changed file gets a new name, so cache forever.
+    location /assets/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        access_log off;
+        try_files $uri =404;
+    }
+
+    location /api/ {
+        proxy_pass $api_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        proxy_read_timeout 90s; # first request after Azure SQL auto-pause can take a while
+    }
+
+    location /auth/ {
+        proxy_pass $api_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        proxy_read_timeout 90s;
+    }
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok";
+    }
+
+    # Everything else is the SPA: real files if they exist, otherwise index.html (client-side routes).
+    # Never cache the HTML shell, so a deploy is picked up on the next navigation.
+    location / {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri /index.html;
+    }
+}

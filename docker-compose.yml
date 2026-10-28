@@ -26,7 +26,8 @@ services:
 
   migrate:
     profiles: [app]
-    build: { context: backend, dockerfile: Dockerfile.collector }
+    build: { context: backend, target: collector }
+    image: ashopper-collector
     command: ["migrate"]
     environment:
       ConnectionStrings__Sql: *sql
@@ -35,7 +36,7 @@ services:
 
   collector:
     profiles: [app]
-    build: { context: backend, dockerfile: Dockerfile.collector }
+    image: ashopper-collector
     command: ["collect", "--backfill-days", "180"]
     environment:
       ConnectionStrings__Sql: *sql
@@ -44,7 +45,8 @@ services:
 
   api:
     profiles: [app]
-    build: { context: backend, dockerfile: Dockerfile.api }
+    build: { context: backend, target: api }
+    image: ashopper-api
     environment:
       ConnectionStrings__Sql: *sql
       Auth__PublicUrl: http://localhost:8080
@@ -59,6 +61,7 @@ services:
   ui:
     profiles: [app]
     build: { context: frontend }
+    image: ashopper-ui
     environment:
       API_UPSTREAM: http://api:8080
     ports: ["8080:8080"]

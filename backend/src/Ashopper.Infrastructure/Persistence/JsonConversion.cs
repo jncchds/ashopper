@@ -14,6 +14,8 @@ public static class AshopperJson
     public static JsonSerializerOptions Configure(JsonSerializerOptions options)
     {
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        // Numbers are numbers: keeps the OpenAPI contract (and generated TS types) "number", not "number | string".
+        options.NumberHandling = JsonNumberHandling.Strict;
         return options;
     }
 }

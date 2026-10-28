@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 var services = builder.Services;
@@ -19,7 +20,16 @@ var services = builder.Services;
 services.AddAshopperData(builder.Configuration);
 services.ConfigureHttpJsonOptions(o => AshopperJson.Configure(o.SerializerOptions));
 services.AddProblemDetails();
-services.AddOpenApi();
+services.AddOpenApi(o => o.AddSchemaTransformer((schema, _, _) =>
+{
+    // The schema generator describes decimals as "number | string"; our JSON is strict, so keep only number.
+    if (schema.Type is { } type && type.HasFlag(JsonSchemaType.Number) && type.HasFlag(JsonSchemaType.String))
+    {
+        schema.Type = type & ~JsonSchemaType.String;
+        schema.Pattern = null;
+    }
+    return Task.CompletedTask;
+}));
 
 // --- Identity: users, password hashing, lockout, email/reset tokens. No cookies: we issue JWTs ourselves.
 services.AddIdentityCore<AppUser>(o =>
@@ -37,12 +47,14 @@ services.AddIdentityCore<AppUser>(o =>
 services.AddDataProtection().PersistKeysToDbContext<AppDbContext>().SetApplicationName("ashopper");
 
 // --- JWT access tokens + refresh tokens
-services.AddOptions<JwtOptions>()
+var jwtOptions = services.AddOptions<JwtOptions>()
     .BindConfiguration(JwtOptions.Section)
     .ValidateDataAnnotations()
     .Validate(o => o.SigningKeys.Any(k => k.Id == o.ActiveKeyId), "Auth:Jwt:ActiveKeyId must name one of SigningKeys.")
-    .Validate(o => o.SigningKeys.All(k => IsStrongKey(k.Key)), "Each signing key must be base64 of at least 32 bytes.")
-    .ValidateOnStart();
+    .Validate(o => o.SigningKeys.All(k => IsStrongKey(k.Key)), "Each signing key must be base64 of at least 32 bytes.");
+// Fail fast on bad key config, except when the build-time OpenAPI generator hosts the app (no secrets there).
+if (System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name != "GetDocument.Insider")
+    jwtOptions.ValidateOnStart();
 services.AddOptions<AuthOptions>().BindConfiguration(AuthOptions.Section);
 
 services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();

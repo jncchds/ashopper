@@ -31,6 +31,22 @@ public class FakePriceSourceTests
         Assert.Equal(offer.Price, first[^1].Price);
     }
 
+    [Theory]
+    [InlineData("PL", "pc-ram", 200, 1200)]
+    [InlineData("PL", "pc-gpu", 900, 5000)]
+    [InlineData("UA", "home-fridge", 12000, 45000)]
+    public async Task Every_generated_price_stays_in_a_plausible_range(string market, string category, decimal min, decimal max)
+    {
+        var today = new DateOnly(2026, 6, 1);
+        var offers = (await _source.DiscoverAsync(market, category, CancellationToken.None).ToListAsync()).SelectMany(p => p.Offers);
+
+        foreach (var offer in offers)
+        {
+            var prices = _source.GetHistory(offer.ExternalId, today.AddDays(-365), today).Select(p => p.Price).ToList();
+            Assert.True(prices.All(p => p > min && p < max), $"{offer.ExternalId}: {prices.Min()}..{prices.Max()}");
+        }
+    }
+
     [Fact]
     public async Task Unknown_market_or_category_yields_nothing()
     {

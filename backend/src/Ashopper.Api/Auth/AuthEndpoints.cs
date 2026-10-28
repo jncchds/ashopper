@@ -21,14 +21,14 @@ public static class AuthEndpoints
     {
         var auth = app.MapGroup("/auth").WithTags("Auth");
 
-        auth.MapPost("/register", RegisterAsync).RequireRateLimiting(RateLimitPolicy);
-        auth.MapPost("/login", LoginAsync).RequireRateLimiting(RateLimitPolicy);
-        auth.MapPost("/refresh", RefreshAsync);
-        auth.MapPost("/logout", LogoutAsync);
-        auth.MapGet("/confirm-email", ConfirmEmailAsync);
-        auth.MapPost("/forgot-password", ForgotPasswordAsync).RequireRateLimiting(RateLimitPolicy);
-        auth.MapPost("/reset-password", ResetPasswordAsync).RequireRateLimiting(RateLimitPolicy);
-        auth.MapGet("/me", MeAsync).RequireAuthorization();
+        auth.MapPost("/register", RegisterAsync).RequireRateLimiting(RateLimitPolicy).Produces<UserResponse>();
+        auth.MapPost("/login", LoginAsync).RequireRateLimiting(RateLimitPolicy).Produces<TokenResponse>();
+        auth.MapPost("/refresh", RefreshAsync).Produces<TokenResponse>();
+        auth.MapPost("/logout", LogoutAsync).Produces(StatusCodes.Status204NoContent);
+        auth.MapGet("/confirm-email", ConfirmEmailAsync).Produces<UserResponse>();
+        auth.MapPost("/forgot-password", ForgotPasswordAsync).RequireRateLimiting(RateLimitPolicy).Produces(StatusCodes.Status202Accepted);
+        auth.MapPost("/reset-password", ResetPasswordAsync).RequireRateLimiting(RateLimitPolicy).Produces(StatusCodes.Status204NoContent);
+        auth.MapGet("/me", MeAsync).RequireAuthorization().Produces<UserResponse>();
     }
 
     private static async Task<IResult> RegisterAsync(

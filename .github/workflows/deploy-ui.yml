@@ -1,0 +1,53 @@
+name: Deploy UI
+
+# The UI ships independently of the API: its own image, its own Container App.
+on:
+  push:
+    branches: [main]
+    paths: [frontend/**, .github/workflows/deploy-ui.yml]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ui
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
+  RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+  PREFIX: ${{ vars.APP_PREFIX || 'ashopper' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push UI image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          tags: ${{ env.REGISTRY }}/ashopper-ui:${{ github.sha }},${{ env.REGISTRY }}/ashopper-ui:latest
+          cache-from: type=gha,scope=ui
+          cache-to: type=gha,mode=max,scope=ui
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Roll out UI
+        run: az containerapp update -g "$RG" -n "$PREFIX-ui" --image "$REGISTRY/ashopper-ui:${{ github.sha }}" -o none

@@ -185,15 +185,17 @@ public sealed class PoliteFetcher(
     ];
 
     /// <summary>
-    /// A bot check instead of the page. Only looked for on error statuses, or on 200 pages that are suspiciously small,
-    /// so a product page that merely mentions "captcha" in a script isn't mistaken for one.
+    /// A bot check instead of the page. Only looked for on error statuses, or on 200 HTML pages that are suspiciously
+    /// small, so a product page that merely mentions "captcha" in a script isn't mistaken for one. Not on plain text:
+    /// robots.txt files often list "/cdn-cgi/challenge-platform/" (MediaMarkt's does).
     /// </summary>
     public static bool IsChallenge(HttpResponseMessage response, string body)
     {
         if (response.Headers.TryGetValues("cf-mitigated", out var mitigated) && mitigated.Contains("challenge"))
             return true;
+        var isHtml = response.Content.Headers.ContentType?.MediaType is null or "text/html" or "application/xhtml+xml";
         var suspicious = response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable
-            || (response.IsSuccessStatusCode && body.Length < 20_000);
+            || (response.IsSuccessStatusCode && isHtml && body.Length < 20_000);
         return suspicious && ChallengeMarkers.Any(m => body.Contains(m, StringComparison.OrdinalIgnoreCase));
     }
 

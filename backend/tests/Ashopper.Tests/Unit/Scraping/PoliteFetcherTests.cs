@@ -89,6 +89,31 @@ public class PoliteFetcherTests
     }
 
     [Fact]
+    public async Task Robots_txt_mentioning_challenge_paths_is_not_a_challenge()
+    {
+        // MediaMarkt's real robots.txt (2026-10-29) lists Cloudflare's challenge path.
+        _shop.Respond("/robots.txt", HttpStatusCode.OK, "User-Agent: *\nDisallow: /cdn-cgi/challenge-platform/\nDisallow: *query*\n",
+            r => r.Content.Headers.ContentType = new("text/plain"));
+        _shop.Respond("/p/1-item.html", HttpStatusCode.OK, StructuredDataTests.Fixture("mediamarkt.html"),
+            r => r.Content.Headers.ContentType = new("text/html"));
+
+        var result = await Fetcher().FetchAsync(Page, CancellationToken.None);
+
+        Assert.Equal(FetchKind.Ok, result.Kind);
+        Assert.Null((await _hosts.GetAsync(Page.Host, default)).BlockedUntil);
+    }
+
+    [Fact]
+    public async Task Small_html_challenge_page_with_200_is_detected()
+    {
+        _shop.Respond("/robots.txt", HttpStatusCode.OK, "", r => r.Content.Headers.ContentType = new("text/plain"));
+        _shop.Respond("/p/1-item.html", HttpStatusCode.OK, StructuredDataTests.Fixture("allegro-datadome.html"),
+            r => r.Content.Headers.ContentType = new("text/html"));
+
+        Assert.Equal(FetchKind.Blocked, (await Fetcher().FetchAsync(Page, CancellationToken.None)).Kind);
+    }
+
+    [Fact]
     public async Task Too_many_requests_honors_retry_after()
     {
         _shop.Respond("/robots.txt", HttpStatusCode.OK, "");

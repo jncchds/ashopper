@@ -23,6 +23,7 @@
     "main": "Nawigacja główna",
     "skip": "Przejdź do treści",
     "lists": "Listy zakupów",
+    "tracked": "Śledzone linki",
     "settings": "Ustawienia",
     "myLists": "Moje listy"
   },
@@ -123,5 +124,37 @@
     "discountsHint": "Osobisty rabat jest stosowany do każdej ceny z danego sklepu, na wszystkich Twoich listach.",
     "market": "Rynek",
     "account": "Konto"
+  },
+  "tracked": {
+    "title": "Śledzone linki",
+    "subtitle": "Wklej link do produktu z obsługiwanego sklepu. Cena jest sprawdzana kilka razy dziennie i zapisywana w historii.",
+    "stores": "Sklepy",
+    "limited": "ograniczony",
+    "blockedUntil": "Przerwa do {{time}}.",
+    "url": "Link do produktu",
+    "category": "Kategoria",
+    "pickCategory": "Wybierz kategorię…",
+    "sameAs": "Ten sam produkt co (opcjonalnie)",
+    "sameAsNone": "— nowy produkt —",
+    "add": "Śledź",
+    "politeNote": "Sprawdzarka przedstawia się, przestrzega robots.txt i robi przerwy między zapytaniami. Sklepy, które odpowiadają botom captchą, są pomijane.",
+    "empty": "Brak śledzonych linków. Wklej pierwszy powyżej.",
+    "checked": "Sprawdzono {{time}}",
+    "notChecked": "Jeszcze nie sprawdzono",
+    "next": "następnie {{time}}",
+    "outOfStock": "Niedostępny",
+    "open": "Otwórz w sklepie",
+    "checkNow": "Sprawdź wkrótce",
+    "remove": "Przestań śledzić",
+    "trend": "Cena od {{from}} do {{to}}, najniższa {{low}}",
+    "status": {
+      "pending": "Czeka na pierwsze sprawdzenie",
+      "ok": "OK",
+      "noPrice": "Brak ceny na stronie",
+      "notFound": "Nie znaleziono strony",
+      "blocked": "Zablokowane przez sklep",
+      "robotsDisallowed": "Zabronione w robots.txt",
+      "error": "Błąd"
+    }
   }
 }

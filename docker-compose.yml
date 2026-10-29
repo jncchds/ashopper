@@ -2,6 +2,9 @@
 #   docker compose up -d sqlserver            # just the database, run API/UI from your IDE
 #   docker compose --profile app up --build   # everything in containers, open http://localhost:8080
 #
+# The "scraper" service checks tracked product links (Tracked links page) every minute; it obeys robots.txt and
+# spaces requests per store. Ports can be moved to run a second stack: UI_PORT=8090 SQL_PORT=14330.
+#
 # Dev-only secrets below (SA password, JWT key). Production values come from Container Apps secrets.
 
 name: ashopper
@@ -15,7 +18,7 @@ services:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "Ashopper_dev_123!"
       MSSQL_PID: Developer
-    ports: ["1433:1433"]
+    ports: ["${SQL_PORT:-1433}:1433"]
     volumes: [sqldata:/var/opt/mssql]
     healthcheck:
       test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' -b -o /dev/null"]
@@ -27,7 +30,7 @@ services:
   migrate:
     profiles: [app]
     build: { context: backend, target: collector }
-    image: ashopper-collector
+    image: ${COMPOSE_PROJECT_NAME:-ashopper}-collector
     command: ["migrate"]
     environment:
       ConnectionStrings__Sql: *sql
@@ -36,17 +39,29 @@ services:
 
   collector:
     profiles: [app]
-    image: ashopper-collector
+    image: ${COMPOSE_PROJECT_NAME:-ashopper}-collector
     command: ["collect", "--backfill-days", "180"]
     environment:
       ConnectionStrings__Sql: *sql
     depends_on:
       migrate: { condition: service_completed_successfully }
 
+  scraper:
+    profiles: [app]
+    image: ${COMPOSE_PROJECT_NAME:-ashopper}-collector
+    command: ["scrape", "--watch", "--interval", "60"]
+    environment:
+      ConnectionStrings__Sql: *sql
+      # Name a way to reach you; shops see this in their logs.
+      Scraper__UserAgent: ${SCRAPER_USER_AGENT:-AshopperBot/0.1 (personal price tracker; local dev)}
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
   api:
     profiles: [app]
     build: { context: backend, target: api }
-    image: ashopper-api
+    image: ${COMPOSE_PROJECT_NAME:-ashopper}-api
     environment:
       ConnectionStrings__Sql: *sql
       Auth__PublicUrl: http://localhost:8080
@@ -61,10 +76,10 @@ services:
   ui:
     profiles: [app]
     build: { context: frontend }
-    image: ashopper-ui
+    image: ${COMPOSE_PROJECT_NAME:-ashopper}-ui
     environment:
       API_UPSTREAM: http://api:8080
-    ports: ["8080:8080"]
+    ports: ["${UI_PORT:-8080}:8080"]
     depends_on: [api]
 
 volumes:

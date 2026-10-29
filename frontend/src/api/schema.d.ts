@@ -857,6 +857,171 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/stores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StoreDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tracked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrackedUrlDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TrackUrlRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrackedUrlDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tracked/{id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrackedUrlDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tracked/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1034,6 +1199,8 @@ export interface components {
             code: string;
             newPassword: string;
         };
+        /** @enum {unknown} */
+        ScrapeStatus: "pending" | "ok" | "noPrice" | "notFound" | "blocked" | "robotsDisallowed" | "error";
         SetDiscountRequest: {
             /** Format: double */
             percent: number;
@@ -1056,11 +1223,61 @@ export interface components {
             op: components["schemas"]["ConstraintOp"];
             values: string[];
         };
+        StoreDto: {
+            key: string;
+            name: string;
+            marketCode: string;
+            domain: string;
+            enabled: boolean;
+            knownLimitation: null | string;
+            /** Format: date-time */
+            blockedUntil: null | string;
+            blockReason: null | string;
+        };
         TokenResponse: {
             accessToken: string;
             /** Format: int32 */
             expiresIn: number;
             user: components["schemas"]["UserResponse"];
+        };
+        TrackedPricePointDto: {
+            /** Format: date */
+            day: string;
+            /** Format: double */
+            price: number;
+            inStock: boolean;
+        };
+        TrackedUrlDto: {
+            /** Format: uuid */
+            id: string;
+            url: string;
+            storeKey: string;
+            storeName: string;
+            /** Format: uuid */
+            categoryId: string;
+            /** Format: uuid */
+            productId: null | string;
+            title: null | string;
+            status: components["schemas"]["ScrapeStatus"];
+            lastError: null | string;
+            /** Format: date-time */
+            lastCheckedAt: null | string;
+            /** Format: date-time */
+            nextCheckAt: string;
+            /** Format: double */
+            price: null | number;
+            currency: null | string;
+            inStock: null | boolean;
+            history: components["schemas"]["TrackedPricePointDto"][];
+            /** Format: date-time */
+            addedAt: string;
+        };
+        TrackUrlRequest: {
+            url: string;
+            /** Format: uuid */
+            categoryId: string;
+            /** Format: uuid */
+            productId: null | string;
         };
         UpdateListRequest: {
             name: string;

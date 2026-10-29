@@ -49,6 +49,7 @@ export function Layout() {
 
   const nav = [
     { to: '/', icon: '🛒', label: t('nav.lists'), end: true },
+    { to: '/tracked', icon: '🔗', label: t('nav.tracked') },
     { to: '/settings', icon: '⚙️', label: t('nav.settings') },
   ];
   const nextTheme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];

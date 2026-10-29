@@ -15,6 +15,7 @@ export const router = createBrowserRouter([
       { path: '/', element: <ListsPage /> },
       // Lazy: the chart library is the biggest dependency; the login and overview pages don't need it.
       { path: '/lists/:id', lazy: async () => ({ Component: (await import('./pages/ListPage')).ListPage }) },
+      { path: '/tracked', lazy: async () => ({ Component: (await import('./pages/TrackedPage')).TrackedPage }) },
       { path: '/settings', element: <SettingsPage /> },
     ],
   },

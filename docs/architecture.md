@@ -17,7 +17,7 @@ migrate   (Container Apps Job, per deploy) ┘
 | `Ashopper.Domain` | Pure model and rules, no I/O: markets, categories with attribute schemas, products, offers, prices, lists, requirements. `SpecMatcher` (does a product satisfy constraints?) and `PriceHistoryCalculator` (cheapest offer per requirement per day, discounts, carry-forward). |
 | `Ashopper.Infrastructure` | EF Core `AppDbContext` and migrations, reference data seeding, price sources, collector pipeline, read queries. |
 | `Ashopper.Api` | HTTP: auth, catalog, lists, discounts. Caching headers and rate limiting. |
-| `Ashopper.Collector` | Console host: `migrate` and `collect`. |
+| `Ashopper.Collector` | Console host: `migrate`, `collect` and `scrape`. |
 | `frontend/` | React SPA plus its nginx image. |
 
 ## Core idea: requirements, not products
@@ -46,6 +46,33 @@ The UI formats money with the list's currency and the user's language.
 2. Register it in `DependencyInjection.AddAshopperCollector` behind `Sources:<Name>:Enabled`. Use `AddHttpClient(...).AddStandardResilienceHandler()` for retries, timeouts and circuit breaking.
 3. Put credentials in configuration: env vars locally, Container Apps secrets on Azure.
 4. Optionally implement `IHistoricalPriceSource` if the source can return past prices. New offers are then backfilled with `--backfill-days`.
+
+## Polite scraper (tracked links)
+
+Until aggregator access arrives, users can paste a product link from a supported store and its price is tracked.
+Details and the reasoning are in `docs/plans/03-polite-scraper.md`.
+
+- **Stores** are `StoreAdapter`s in `Infrastructure/Scraping/Stores`: domain, market, URL canonicalization (tracking
+  parameters removed) and page parsing. The default parser reads schema.org JSON-LD anywhere in the page and falls back
+  to OpenGraph price tags. Today: x-kom and MediaMarkt work. Media Expert and Allegro answer bots with a captcha, so
+  their checks end as *blocked*.
+- **Adding a store:** subclass `StoreAdapter` (usually only key, name, market and domain), add it to
+  `StoreRegistry.Default`, save a trimmed page under `tests/.../Unit/Scraping/Fixtures/` and add a parsing test. First
+  check the store's robots.txt and that it serves product pages to an honestly identified client.
+- **Politeness rules** live in `PoliteFetcher`, the only code that talks to shops:
+  - an honest `User-Agent` (`Scraper:UserAgent`, set a contact);
+  - robots.txt is obeyed, including `Crawl-delay`;
+  - requests to one host are one at a time and spaced (≥ 20 s + jitter), with the slot reserved in `ScrapeHosts`, so
+    parallel processes share it;
+  - no retries;
+  - `429`/`503` and challenge pages put the whole host on a back-off;
+  - it never tries to get around a bot challenge.
+- **Data:** `TrackedUrl` (one row per canonical URL, shared by users through `TrackedUrlSubscription`) feeds an `Offer`
+  with `SourceKey = "scraper"`. Prices go to `PriceObservation`/`DailyPrice` like any other source, so a scraped product
+  can be pinned in a list requirement. "Same item as" attaches a second store's link to an existing product.
+- **Running:** `Ashopper.Collector scrape` does one pass over due links; `--watch` repeats every minute (Docker Compose
+  runs the `scraper` service this way). Each pass records a `CollectorRun` and rebuilds matches. Pages are rechecked
+  about every 12 h, and failures back off exponentially up to 7 days. Not yet scheduled on Azure.
 
 ## Auth
 

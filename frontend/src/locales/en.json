@@ -23,6 +23,7 @@
     "main": "Main navigation",
     "skip": "Skip to content",
     "lists": "Shopping lists",
+    "tracked": "Tracked links",
     "settings": "Settings",
     "myLists": "My lists"
   },
@@ -115,5 +116,37 @@
     "discountsHint": "A personal discount is applied to every price from that shop, in all your lists.",
     "market": "Market",
     "account": "Account"
+  },
+  "tracked": {
+    "title": "Tracked links",
+    "subtitle": "Paste a product link from a supported store. Its price is checked a couple of times a day and kept as history.",
+    "stores": "Stores",
+    "limited": "limited",
+    "blockedUntil": "Backing off until {{time}}.",
+    "url": "Product link",
+    "category": "Category",
+    "pickCategory": "Pick a category…",
+    "sameAs": "Same item as (optional)",
+    "sameAsNone": "— a new item —",
+    "add": "Track",
+    "politeNote": "The checker identifies itself, obeys robots.txt and waits between requests. Stores that answer bots with a captcha are left alone.",
+    "empty": "No tracked links yet. Paste one above.",
+    "checked": "Checked {{time}}",
+    "notChecked": "Not checked yet",
+    "next": "next {{time}}",
+    "outOfStock": "Out of stock",
+    "open": "Open in the store",
+    "checkNow": "Check soon",
+    "remove": "Stop tracking",
+    "trend": "Price from {{from}} to {{to}}, lowest {{low}}",
+    "status": {
+      "pending": "Waiting for first check",
+      "ok": "OK",
+      "noPrice": "No price on page",
+      "notFound": "Page not found",
+      "blocked": "Blocked by store",
+      "robotsDisallowed": "Not allowed by robots.txt",
+      "error": "Error"
+    }
   }
 }

@@ -1,4 +1,9 @@
+using System.Net;
 using Ashopper.Infrastructure.Collecting;
+using Ashopper.Infrastructure.Scraping;
+using Ashopper.Infrastructure.Scraping.Stores;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Ashopper.Infrastructure.Persistence;
 using Ashopper.Infrastructure.Queries;
 using Ashopper.Infrastructure.Sources;
@@ -29,6 +34,32 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<MatchRebuilder>();
         services.AddScoped<ListPricingQuery>();
+
+        // Store adapters are pure (URL rules + parsing); the API uses them to validate and canonicalize tracked URLs.
+        services.AddOptions<ScraperOptions>().BindConfiguration(ScraperOptions.Section);
+        services.AddSingleton(new StoreRegistry(StoreRegistry.Default));
+        return services;
+    }
+
+    /// <summary>The polite scraper: fetches tracked product pages. Only the collector needs it.</summary>
+    public static IServiceCollection AddAshopperScraper(this IServiceCollection services)
+    {
+        services.AddHttpClient<PoliteFetcher>(PoliteFetcher.HttpClientName, (sp, http) =>
+            {
+                http.Timeout = TimeSpan.FromSeconds(sp.GetRequiredService<IOptions<ScraperOptions>>().Value.TimeoutSeconds);
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AutomaticDecompression = DecompressionMethods.All,
+                AllowAutoRedirect = true,
+                MaxAutomaticRedirections = 3,
+                UseCookies = false, // stateless: no sessions, nothing that looks like a returning browser
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            });
+        // No resilience handler on purpose: retries would multiply requests to shops. Failed pages wait for a later run.
+        services.TryAddSingleton<IHostStateStore, DbHostStateStore>();
+        services.AddScoped<ScrapeRecorder>();
+        services.AddTransient<ScrapeService>();
         return services;
     }
 

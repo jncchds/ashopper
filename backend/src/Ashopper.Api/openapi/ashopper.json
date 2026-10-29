@@ -715,6 +715,130 @@
           }
         }
       }
+    },
+    "/api/stores": {
+      "get": {
+        "tags": [
+          "Tracking"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StoreDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracked": {
+      "get": {
+        "tags": [
+          "Tracking"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackedUrlDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tracking"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackUrlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedUrlDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracked/{id}/check": {
+      "post": {
+        "tags": [
+          "Tracking"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedUrlDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracked/{id}": {
+      "delete": {
+        "tags": [
+          "Tracking"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1349,6 +1473,17 @@
           }
         }
       },
+      "ScrapeStatus": {
+        "enum": [
+          "pending",
+          "ok",
+          "noPrice",
+          "notFound",
+          "blocked",
+          "robotsDisallowed",
+          "error"
+        ]
+      },
       "SetDiscountRequest": {
         "required": [
           "percent"
@@ -1424,6 +1559,55 @@
           }
         }
       },
+      "StoreDto": {
+        "required": [
+          "key",
+          "name",
+          "marketCode",
+          "domain",
+          "enabled",
+          "knownLimitation",
+          "blockedUntil",
+          "blockReason"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "marketCode": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "knownLimitation": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "blockedUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "blockReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "TokenResponse": {
         "required": [
           "accessToken",
@@ -1441,6 +1625,153 @@
           },
           "user": {
             "$ref": "#/components/schemas/UserResponse"
+          }
+        }
+      },
+      "TrackedPricePointDto": {
+        "required": [
+          "day",
+          "price",
+          "inStock"
+        ],
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "price": {
+            "type": "number",
+            "format": "double"
+          },
+          "inStock": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TrackedUrlDto": {
+        "required": [
+          "id",
+          "url",
+          "storeKey",
+          "storeName",
+          "categoryId",
+          "productId",
+          "title",
+          "status",
+          "lastError",
+          "lastCheckedAt",
+          "nextCheckAt",
+          "price",
+          "currency",
+          "inStock",
+          "history",
+          "addedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "url": {
+            "type": "string"
+          },
+          "storeKey": {
+            "type": "string"
+          },
+          "storeName": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScrapeStatus"
+          },
+          "lastError": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastCheckedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "nextCheckAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "price": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "currency": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inStock": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrackedPricePointDto"
+            }
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TrackUrlRequest": {
+        "required": [
+          "url",
+          "categoryId",
+          "productId"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -1497,6 +1828,9 @@
     },
     {
       "name": "Discounts"
+    },
+    {
+      "name": "Tracking"
     }
   ]
 }

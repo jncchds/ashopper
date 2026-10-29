@@ -22,6 +22,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Unit/Scraping/Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Ashopper.Domain\Ashopper.Domain.csproj" />
     <ProjectReference Include="..\..\src\Ashopper.Infrastructure\Ashopper.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Ashopper.Api\Ashopper.Api.csproj" />

@@ -546,6 +546,125 @@ namespace Ashopper.Infrastructure.Persistence.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("Ashopper.Infrastructure.Scraping.ScrapeHost", b =>
+                {
+                    b.Property<string>("Host")
+                        .HasMaxLength(253)
+                        .HasColumnType("nvarchar(253)");
+
+                    b.Property<string>("BlockReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTimeOffset?>("BlockedUntil")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("NextRequestAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("RobotsFetchedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RobotsTxt")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Host");
+
+                    b.ToTable("ScrapeHosts");
+                });
+
+            modelBuilder.Entity("Ashopper.Infrastructure.Scraping.TrackedUrl", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ConsecutiveFailures")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("LastCheckedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LastStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTimeOffset?>("LastSuccessAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("NextCheckAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("OfferId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StoreKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<string>("UrlHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("NextCheckAt");
+
+                    b.HasIndex("OfferId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("UrlHash")
+                        .IsUnique();
+
+                    b.ToTable("TrackedUrls");
+                });
+
+            modelBuilder.Entity("Ashopper.Infrastructure.Scraping.TrackedUrlSubscription", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TrackedUrlId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("UserId", "TrackedUrlId");
+
+                    b.HasIndex("TrackedUrlId");
+
+                    b.ToTable("TrackedUrlSubscriptions");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")
@@ -826,6 +945,40 @@ namespace Ashopper.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Ashopper.Infrastructure.Identity.RefreshToken", b =>
                 {
+                    b.HasOne("Ashopper.Infrastructure.Identity.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Ashopper.Infrastructure.Scraping.TrackedUrl", b =>
+                {
+                    b.HasOne("Ashopper.Domain.Catalog.Category", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Ashopper.Domain.Pricing.Offer", null)
+                        .WithMany()
+                        .HasForeignKey("OfferId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("Ashopper.Domain.Catalog.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("Ashopper.Infrastructure.Scraping.TrackedUrlSubscription", b =>
+                {
+                    b.HasOne("Ashopper.Infrastructure.Scraping.TrackedUrl", null)
+                        .WithMany()
+                        .HasForeignKey("TrackedUrlId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Ashopper.Infrastructure.Identity.AppUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")

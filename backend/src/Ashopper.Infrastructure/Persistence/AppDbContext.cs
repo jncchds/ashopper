@@ -4,6 +4,7 @@ using Ashopper.Domain.Matching;
 using Ashopper.Domain.Pricing;
 using Ashopper.Infrastructure.Collecting;
 using Ashopper.Infrastructure.Identity;
+using Ashopper.Infrastructure.Scraping;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -29,6 +30,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<CollectorRun> CollectorRuns => Set<CollectorRun>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+    public DbSet<TrackedUrl> TrackedUrls => Set<TrackedUrl>();
+    public DbSet<TrackedUrlSubscription> TrackedUrlSubscriptions => Set<TrackedUrlSubscription>();
+    public DbSet<ScrapeHost> ScrapeHosts => Set<ScrapeHost>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -160,6 +164,37 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         {
             e.HasIndex(x => x.FinishedAt);
             e.Property(x => x.Sources).HasMaxLength(400);
+        });
+
+        b.Entity<TrackedUrl>(e =>
+        {
+            e.HasIndex(x => x.UrlHash).IsUnique();
+            e.HasIndex(x => x.NextCheckAt);
+            e.Property(x => x.Url).HasMaxLength(2048);
+            e.Property(x => x.UrlHash).HasMaxLength(64);
+            e.Property(x => x.StoreKey).HasMaxLength(32);
+            e.Property(x => x.LastStatus).HasConversion<string>().HasMaxLength(32);
+            e.Property(x => x.LastError).HasMaxLength(500);
+            e.Property(x => x.Title).HasMaxLength(400);
+            e.HasOne<Category>().WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
+            // Products and offers are never hard-deleted; avoid extra cascade paths.
+            e.HasOne<Product>().WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne<Offer>().WithMany().HasForeignKey(x => x.OfferId).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        b.Entity<TrackedUrlSubscription>(e =>
+        {
+            e.HasKey(x => new { x.UserId, x.TrackedUrlId });
+            e.HasIndex(x => x.TrackedUrlId);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<TrackedUrl>().WithMany().HasForeignKey(x => x.TrackedUrlId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ScrapeHost>(e =>
+        {
+            e.HasKey(x => x.Host);
+            e.Property(x => x.Host).HasMaxLength(253);
+            e.Property(x => x.BlockReason).HasMaxLength(300);
         });
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Ashopper.Infrastructure;
 using Ashopper.Infrastructure.Collecting;
 using Ashopper.Infrastructure.Persistence;
+using Ashopper.Infrastructure.Scraping;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 // Run-once console app. On Azure it's a Container Apps Job: "migrate" once per deploy, "collect" on a cron.
 //
 //   collect [--source fake] [--source ceneo] [--backfill-days 180]
+//   scrape [--watch] [--interval 60]      check tracked product pages that are due (the polite scraper)
 //   migrate
 var command = args.FirstOrDefault(a => !a.StartsWith("--")) ?? "collect";
 var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
@@ -17,6 +19,7 @@ var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
 });
 builder.Services.AddAshopperData(builder.Configuration);
 builder.Services.AddAshopperCollector(builder.Configuration);
+builder.Services.AddAshopperScraper();
 using var host = builder.Build();
 
 using var cts = new CancellationTokenSource();
@@ -41,8 +44,38 @@ switch (command)
             return run.Succeeded ? 0 : 1;
         }
 
+    case "scrape":
+        // --watch keeps looking for due pages, so locally a newly added link gets its first price within a minute.
+        // Without it: one pass, which suits a cron job.
+        var watch = args.Contains("--watch");
+        var interval = TimeSpan.FromSeconds(int.TryParse(ReadAll(args, "--interval").LastOrDefault(), out var seconds) ? Math.Max(seconds, 10) : 60);
+        var scraper = host.Services.GetRequiredService<ScrapeService>();
+        do
+        {
+            try
+            {
+                await scraper.RunAsync(cts.Token);
+            }
+            catch (Exception ex) when (watch && ex is not OperationCanceledException)
+            {
+                Console.Error.WriteLine($"Scrape pass failed: {ex.Message}");
+            }
+            if (!watch)
+                break;
+            try
+            {
+                await Task.Delay(interval, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+        while (!cts.IsCancellationRequested);
+        return 0;
+
     default:
-        Console.Error.WriteLine($"Unknown command '{command}'. Use 'collect' or 'migrate'.");
+        Console.Error.WriteLine($"Unknown command '{command}'. Use 'collect', 'scrape' or 'migrate'.");
         return 2;
 }
 

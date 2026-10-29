@@ -4,6 +4,7 @@ using Ashopper.Api.Auth;
 using Ashopper.Infrastructure;
 using Ashopper.Infrastructure.Collecting;
 using Ashopper.Infrastructure.Persistence;
+using Ashopper.Infrastructure.Scraping;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -62,6 +63,31 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await base.DisposeAsync();
         await _sql.DisposeAsync();
+    }
+
+    /// <summary>
+    /// A scraper on the test database that talks to <paramref name="shop"/> instead of the internet, with no spacing
+    /// between requests and the API's clock.
+    /// </summary>
+    public ScrapeService CreateScraper(HttpMessageHandler shop)
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Sql"] = _sql.GetConnectionString(),
+                ["Scraper:MinDelaySeconds"] = "0",
+                ["Scraper:JitterSeconds"] = "0",
+            })
+            .Build();
+        var services = new ServiceCollection()
+            .AddLogging(b => b.SetMinimumLevel(LogLevel.Warning))
+            .AddSingleton<IConfiguration>(config)
+            .AddAshopperData(config)
+            .AddSingleton<TimeProvider>(Time)
+            .AddSingleton<IHostStateStore>(new InMemoryHostStateStore(Time))
+            .AddAshopperScraper();
+        services.AddHttpClient(PoliteFetcher.HttpClientName).ConfigurePrimaryHttpMessageHandler(() => shop);
+        return services.BuildServiceProvider().GetRequiredService<ScrapeService>();
     }
 
     /// <summary>A client without automatic cookies, so tests control exactly which refresh token is sent.</summary>

@@ -119,6 +119,7 @@ app.MapAuthEndpoints();
 app.MapCatalogEndpoints();
 app.MapListEndpoints();
 app.MapDiscountEndpoints();
+app.MapTrackingEndpoints();
 
 app.Run();
 

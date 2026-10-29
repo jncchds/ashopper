@@ -38,6 +38,8 @@ public static class DependencyInjection
         // Store adapters are pure (URL rules + parsing); the API uses them to validate and canonicalize tracked URLs.
         services.AddOptions<ScraperOptions>().BindConfiguration(ScraperOptions.Section);
         services.AddSingleton(new StoreRegistry(StoreRegistry.Default));
+        // Also used by the API to save a reading the user sent from their own browser.
+        services.AddScoped<ScrapeRecorder>();
         return services;
     }
 
@@ -58,7 +60,6 @@ public static class DependencyInjection
             });
         // No resilience handler on purpose: retries would multiply requests to shops. Failed pages wait for a later run.
         services.TryAddSingleton<IHostStateStore, DbHostStateStore>();
-        services.AddScoped<ScrapeRecorder>();
         services.AddTransient<ScrapeService>();
         return services;
     }

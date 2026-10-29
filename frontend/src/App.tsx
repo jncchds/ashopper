@@ -9,6 +9,7 @@ export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/confirm-email', element: <ConfirmEmailPage /> },
   { path: '/reset-password', element: <ResetPasswordPage /> },
+  { path: '/capture', lazy: async () => ({ Component: (await import('./pages/CapturePage')).CapturePage }) },
   {
     element: <Layout />,
     children: [

@@ -603,6 +603,10 @@ namespace Ashopper.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("LastSuccessAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("LastSuccessVia")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
                     b.Property<DateTimeOffset>("NextCheckAt")
                         .HasColumnType("datetimeoffset");
 

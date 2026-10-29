@@ -70,6 +70,10 @@ Details and the reasoning are in `docs/plans/03-polite-scraper.md`.
 - **Data:** `TrackedUrl` (one row per canonical URL, shared by users through `TrackedUrlSubscription`) feeds an `Offer`
   with `SourceKey = "scraper"`. Prices go to `PriceObservation`/`DailyPrice` like any other source, so a scraped product
   can be pinned in a list requirement. "Same item as" attaches a second store's link to an existing product.
+- **Stores that block bots:** the user can send a price from their own browser instead. On a blocked link, the refresh
+  button opens the page; the "Send to ashopper" bookmarklet (`frontend/src/bookmarklet.ts`) sends the page's structured
+  data to `/capture` → `POST /api/tracked/capture`, which parses it with the same adapter. The scraper never gets around
+  a challenge; a person visiting the page does.
 - **Running:** `Ashopper.Collector scrape` does one pass over due links; `--watch` repeats every minute (Docker Compose
   runs the `scraper` service this way). Each pass records a `CollectorRun` and rebuilds matches. Pages are rechecked
   about every 12 h, and failures back off exponentially up to 7 days. Not yet scheduled on Azure.

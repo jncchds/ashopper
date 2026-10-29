@@ -62,3 +62,19 @@ at). These are listed as follow-ups, not built.
 - An Azure job for `scrape` (the cron collector job runs `collect` only).
 - Extracting category attributes from pages (scraped products only carry name, brand, EAN/MPN, so they're meant for
   pinning, not spec matching).
+
+## Addendum (2026-10-29): prices from the user's own browser
+Requested: "on manual refresh, bot challenges may be presented to the user somehow".
+
+Handing a captcha the user solved back to the server, so the scraper could carry on, would be getting around the
+store's bot check, so it isn't done. Instead the **user** visits the page and shares what they see:
+- On a link whose status is *blocked*, the refresh button opens the product page in a new tab, and the card explains
+  the next step.
+- The user gets past any captcha as a normal visitor, then clicks the **"Send to ashopper" bookmarklet** (installed
+  from the Tracked links page).
+- The bookmarklet collects only the page's structured data (JSON-LD without reviews, `og:`/`product:` meta tags,
+  `itemprop` price/currency/availability). It opens `/capture#<data>` in the app. A URL fragment works from an https
+  store to an http LAN app and stays out of server logs.
+- `/capture` posts it to `POST /api/tracked/capture`. That endpoint parses it with the same store adapter and records
+  it through `ScrapeRecorder` with `LastSuccessVia = "browser"`, then adds a `CollectorRun` so cached list prices
+  refresh. The page must already be tracked by that user. Nothing on the server contacts the store.

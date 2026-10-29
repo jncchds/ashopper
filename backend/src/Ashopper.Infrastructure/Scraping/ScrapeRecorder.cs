@@ -16,8 +16,15 @@ public sealed class ScrapeRecorder(AppDbContext db, IOptions<ScraperOptions> opt
 {
     public const string SourceKey = "scraper";
 
+    /// <summary>The scraper fetched the page itself.</summary>
+    public const string ViaScraper = "scraper";
+
+    /// <summary>The user opened the page in their own browser and sent what it showed (stores that block bots).</summary>
+    public const string ViaBrowser = "browser";
+
     /// <returns>Number of price observations written (0 or 1).</returns>
-    public async Task<int> RecordAsync(Guid trackedUrlId, StoreAdapter store, FetchResult fetch, ScrapedProduct? page, CancellationToken ct)
+    public async Task<int> RecordAsync(
+        Guid trackedUrlId, StoreAdapter store, FetchResult fetch, ScrapedProduct? page, CancellationToken ct, string via = ViaScraper)
     {
         var tracked = await db.TrackedUrls.SingleAsync(t => t.Id == trackedUrlId, ct);
         var now = time.GetUtcNow();
@@ -43,6 +50,7 @@ public sealed class ScrapeRecorder(AppDbContext db, IOptions<ScraperOptions> opt
         {
             observations = await RecordPriceAsync(tracked, store, page!, now, ct);
             tracked.LastSuccessAt = now;
+            tracked.LastSuccessVia = via;
             tracked.ConsecutiveFailures = 0;
             tracked.NextCheckAt = now + Jittered(TimeSpan.FromHours(options.Value.RecheckHours));
         }

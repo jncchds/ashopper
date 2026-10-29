@@ -1,9 +1,10 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer, YAxis } from 'recharts';
 import clsx from 'clsx';
 import { api, unwrap, type Schemas } from '../api/client';
+import { buildBookmarklet } from '../bookmarklet';
 import { Empty, ErrorBox, Loading, PageTitle } from '../components/ui';
 import { formatDay, formatMoney } from '../format';
 import { useI18n } from '../i18n';
@@ -33,6 +34,8 @@ export function TrackedPage() {
     queryFn: () => unwrap(api.GET('/api/tracked')),
     // While a link waits for its first check, poll so the price shows up without a reload.
     refetchInterval: (q) => (q.state.data?.some((x) => x.status === 'pending') ? 15_000 : false),
+    // Coming back from a store tab after sending a price with the bookmark.
+    refetchOnWindowFocus: true,
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['tracked'] });
 
@@ -41,6 +44,7 @@ export function TrackedPage() {
       <PageTitle subtitle={t('tracked.subtitle')}>{t('tracked.title')}</PageTitle>
 
       {stores.data && <StoreStrip stores={stores.data} />}
+      {(stores.data?.some((s) => s.knownLimitation || s.blockedUntil) || tracked.data?.some((x) => x.status === 'blocked')) && <BookmarkletBox />}
       <AddForm tracked={tracked.data ?? []} onAdded={refresh} />
 
       {tracked.isLoading && <Loading />}
@@ -77,6 +81,49 @@ function StoreStrip({ stores }: { stores: Store[] }) {
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Install box for the "Send to ashopper" bookmark: the way to get prices from stores that show bots a captcha.
+ * React refuses javascript: hrefs, so the link's href is set on the DOM node directly.
+ */
+function BookmarkletBox() {
+  const { t } = useI18n();
+  const code = useMemo(() => buildBookmarklet(window.location.origin), []);
+  const [copied, setCopied] = useState(false);
+  const linkRef = useCallback((a: HTMLAnchorElement | null) => a?.setAttribute('href', code), [code]);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+    } catch {
+      window.prompt(t('tracked.bookmarklet.copyPrompt'), code);
+    }
+  }
+
+  return (
+    <details className="card mb-4 px-5 py-3 text-sm">
+      <summary className="cursor-pointer font-medium">{t('tracked.bookmarklet.title')}</summary>
+      <div className="mt-3 space-y-3">
+        <p className="muted">{t('tracked.bookmarklet.why')}</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <a ref={linkRef} className="btn-primary cursor-grab" onClick={(e) => e.preventDefault()} title={t('tracked.bookmarklet.drag')}>
+            📌 {t('tracked.bookmarklet.name')}
+          </a>
+          <span className="muted">{t('tracked.bookmarklet.drag')}</span>
+          <button type="button" className="btn-secondary" onClick={() => void copy()}>
+            {copied ? t('tracked.bookmarklet.copied') : t('tracked.bookmarklet.copy')}
+          </button>
+        </div>
+        <ol className="list-decimal space-y-1 pl-5 muted">
+          <li>{t('tracked.bookmarklet.step1')}</li>
+          <li>{t('tracked.bookmarklet.step2')}</li>
+          <li>{t('tracked.bookmarklet.step3')}</li>
+        </ol>
+      </div>
+    </details>
   );
 }
 
@@ -160,6 +207,18 @@ function TrackedCard({ item, onChanged }: { item: Tracked; onChanged: () => void
   });
   const url = new URL(item.url);
   const when = (iso: string) => new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
+  // The store shows bots a captcha: asking the scraper again won't help. Open the page for the user instead;
+  // they get past any captcha as a normal visitor and send the price with the bookmark.
+  const blocked = item.status === 'blocked';
+  const [opened, setOpened] = useState(false);
+  const refreshNow = () => {
+    if (blocked) {
+      window.open(item.url, '_blank', 'noopener');
+      setOpened(true);
+    } else {
+      check.mutate();
+    }
+  };
 
   return (
     <article className="card flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:px-6">
@@ -172,6 +231,7 @@ function TrackedCard({ item, onChanged }: { item: Tracked; onChanged: () => void
           <span className={clsx('inline-flex items-center rounded px-2 py-0.5 text-xs', STATUS_STYLE[item.status])} title={item.lastError ?? undefined}>
             {t(`tracked.status.${item.status}`)}
           </span>
+          {item.lastSuccessVia === 'browser' && <span className="pill-muted" title={t('tracked.viaBrowserHint')}>{t('tracked.viaBrowser')}</span>}
           <span className="text-xs muted">
             {item.lastCheckedAt ? t('tracked.checked', { time: when(item.lastCheckedAt) }) : t('tracked.notChecked')}
             {' · '}
@@ -198,7 +258,14 @@ function TrackedCard({ item, onChanged }: { item: Tracked; onChanged: () => void
         <a className="btn-ghost px-2" href={item.url} target="_blank" rel="noopener noreferrer" title={t('tracked.open')} aria-label={t('tracked.open')}>
           <ExternalLink className="h-4 w-4" />
         </a>
-        <button type="button" className="btn-ghost px-2" onClick={() => check.mutate()} disabled={check.isPending} title={t('tracked.checkNow')} aria-label={t('tracked.checkNow')}>
+        <button
+          type="button"
+          className="btn-ghost px-2"
+          onClick={refreshNow}
+          disabled={check.isPending}
+          title={blocked ? t('tracked.checkInBrowser') : t('tracked.checkNow')}
+          aria-label={blocked ? t('tracked.checkInBrowser') : t('tracked.checkNow')}
+        >
           <RefreshCw className={clsx('h-4 w-4', check.isPending && 'animate-spin')} />
         </button>
         <button
@@ -212,6 +279,12 @@ function TrackedCard({ item, onChanged }: { item: Tracked; onChanged: () => void
         </button>
       </div>
       {check.error && <p className="text-xs text-danger sm:basis-full" role="alert">{check.error.message}</p>}
+      {opened && (
+        <p className="rounded-md bg-warning/10 px-3 py-2 text-xs text-warning sm:basis-full" role="status">
+          {t('tracked.openedHint')}{' '}
+          <button type="button" className="link" onClick={onChanged}>{t('tracked.reload')}</button>
+        </p>
+      )}
     </article>
   );
 }

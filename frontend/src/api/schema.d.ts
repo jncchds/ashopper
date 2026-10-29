@@ -987,6 +987,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tracked/capture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CaptureRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrackedUrlDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tracked/{id}": {
         parameters: {
             query?: never;
@@ -1053,6 +1092,10 @@ export interface components {
             effectivePrice: number;
             /** Format: double */
             linePrice: number;
+        };
+        CaptureRequest: {
+            url: string;
+            html: string;
         };
         CategoryDto: {
             /** Format: uuid */
@@ -1271,6 +1314,7 @@ export interface components {
             history: components["schemas"]["TrackedPricePointDto"][];
             /** Format: date-time */
             addedAt: string;
+            lastSuccessVia: null | string;
         };
         TrackUrlRequest: {
             url: string;

@@ -44,6 +44,9 @@ public sealed class TrackedUrl
     public DateTimeOffset? LastCheckedAt { get; set; }
     public DateTimeOffset? LastSuccessAt { get; set; }
     public ScrapeStatus LastStatus { get; set; } = ScrapeStatus.Pending;
+
+    /// <summary>Who got the last good reading: <see cref="ScrapeRecorder.ViaScraper"/> or <see cref="ScrapeRecorder.ViaBrowser"/>.</summary>
+    public string? LastSuccessVia { get; set; }
     public string? LastError { get; set; }
     public int ConsecutiveFailures { get; set; }
 

@@ -155,6 +155,32 @@
       "blocked": "Zablokowane przez sklep",
       "robotsDisallowed": "Zabronione w robots.txt",
       "error": "Błąd"
+    },
+    "checkInBrowser": "Otwórz w przeglądarce, aby wysłać cenę",
+    "openedHint": "Ten sklep pokazuje botom captchę, więc strona otworzyła się w nowej karcie. Przejdź captchę, jeśli się pojawi, poczekaj na cenę i kliknij zakładkę „Wyślij do ashopper”.",
+    "reload": "Odśwież listę",
+    "viaBrowser": "wysłane z przeglądarki",
+    "viaBrowserHint": "Ostatnia cena pochodzi ze strony otwartej przez Ciebie, nie od sprawdzarki.",
+    "bookmarklet": {
+      "title": "Sklepy blokujące boty: wysyłaj ceny z przeglądarki",
+      "why": "Niektóre sklepy odpowiadają botom captchą. Sprawdzarka je pomija, ale możesz sam otworzyć stronę i wysłać cenę jednym kliknięciem.",
+      "name": "Wyślij do ashopper",
+      "drag": "Przeciągnij na pasek zakładek.",
+      "copy": "Kopiuj kod zakładki",
+      "copied": "Skopiowano!",
+      "copyPrompt": "Skopiuj i zapisz jako adres zakładki:",
+      "step1": "Najpierw dodaj tu link do produktu.",
+      "step2": "Otwórz stronę produktu w przeglądarce (przycisk odświeżania robi to dla zablokowanych linków). Przejdź captchę, jeśli się pojawi.",
+      "step3": "Kliknij „Wyślij do ashopper”. Małe okno potwierdzi zapisaną cenę."
     }
+  },
+  "capture": {
+    "title": "Wyślij cenę do ashopper",
+    "noData": "Nie dotarły dane strony. Kliknij zakładkę „Wyślij do ashopper” na stronie produktu.",
+    "saving": "Zapisywanie…",
+    "signIn": "Najpierw się zaloguj, a potem ponownie kliknij zakładkę na stronie sklepu.",
+    "saved": "Zapisano {{price}} z {{store}}.",
+    "closeHint": "Możesz zamknąć to okno.",
+    "toTracked": "Śledzone linki"
   }
 }

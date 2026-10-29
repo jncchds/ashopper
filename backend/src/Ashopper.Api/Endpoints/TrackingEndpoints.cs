@@ -14,9 +14,13 @@ public sealed record TrackedPricePointDto(DateOnly Day, decimal Price, bool InSt
 public sealed record TrackedUrlDto(
     Guid Id, string Url, string StoreKey, string StoreName, Guid CategoryId, Guid? ProductId, string? Title,
     ScrapeStatus Status, string? LastError, DateTimeOffset? LastCheckedAt, DateTimeOffset NextCheckAt,
-    decimal? Price, string? Currency, bool? InStock, IReadOnlyList<TrackedPricePointDto> History, DateTimeOffset AddedAt);
+    decimal? Price, string? Currency, bool? InStock, IReadOnlyList<TrackedPricePointDto> History, DateTimeOffset AddedAt,
+    string? LastSuccessVia);
 /// <param name="ProductId">Optional "same item as": attach this page's prices to an existing product.</param>
 public sealed record TrackUrlRequest(string Url, Guid CategoryId, Guid? ProductId);
+/// <param name="Url">The page the user had open (location.href).</param>
+/// <param name="Html">The page's structured data (JSON-LD scripts and price meta tags), as the bookmarklet collected it.</param>
+public sealed record CaptureRequest(string Url, string Html);
 
 /// <summary>Links to product pages that the polite scraper checks. Prices land in the shared catalog tables.</summary>
 public static class TrackingEndpoints
@@ -32,6 +36,7 @@ public static class TrackingEndpoints
         api.MapGet("/tracked", GetTrackedAsync).Produces<List<TrackedUrlDto>>();
         api.MapPost("/tracked", TrackAsync).Produces<TrackedUrlDto>(StatusCodes.Status201Created);
         api.MapPost("/tracked/{id:guid}/check", CheckNowAsync).Produces<TrackedUrlDto>();
+        api.MapPost("/tracked/capture", CaptureAsync).Produces<TrackedUrlDto>();
         api.MapDelete("/tracked/{id:guid}", UntrackAsync).Produces(StatusCodes.Status204NoContent);
     }
 
@@ -120,6 +125,45 @@ public static class TrackingEndpoints
         return Results.Ok((await LoadDtosAsync(db, stores, time, userId, id, ct)).Single());
     }
 
+    /// <summary>
+    /// A reading from the user's own browser, for stores that answer bots with a captcha. The user opened the page as a
+    /// normal visitor (solving any captcha themselves) and the bookmarklet sent its structured data. Parsed with the
+    /// same store adapter as scraped pages; nothing here talks to the store.
+    /// </summary>
+    private static async Task<IResult> CaptureAsync(
+        CaptureRequest req, HttpContext http, AppDbContext db, StoreRegistry stores, ScrapeRecorder recorder,
+        TimeProvider time, CancellationToken ct)
+    {
+        const int maxHtml = 2_000_000;
+        var userId = http.User.GetUserId();
+        if (string.IsNullOrEmpty(req.Html) || req.Html.Length > maxHtml)
+            return Validation.Problem("html", "The page data is missing or too large.");
+        if (!Uri.TryCreate(req.Url, UriKind.Absolute, out var url) || stores.Find(url) is not { } store)
+            return Validation.Problem("url", "This page isn't from a supported store.");
+
+        var hash = TrackedUrl.Hash(store.Canonicalize(url).AbsoluteUri);
+        var tracked = await db.TrackedUrls.AsNoTracking()
+            .Where(t => t.UrlHash == hash && db.TrackedUrlSubscriptions.Any(s => s.TrackedUrlId == t.Id && s.UserId == userId))
+            .SingleOrDefaultAsync(ct);
+        if (tracked is null)
+            return Validation.Problem("url", "You don't track this page yet. Add its link on the Tracked links page first.");
+
+        var page = store.Parse(req.Html, url);
+        if (page?.Price is null)
+            return Validation.Problem("html", "No price found on that page. Wait until it has fully loaded and try again.");
+
+        await recorder.RecordAsync(tracked.Id, store, new FetchResult(FetchKind.Ok, null), page, ct, ScrapeRecorder.ViaBrowser);
+
+        // Like a collector run: cached list prices (ETags) must notice the new reading.
+        var now = time.GetUtcNow();
+        db.CollectorRuns.Add(new Infrastructure.Collecting.CollectorRun
+        {
+            StartedAt = now, FinishedAt = now, Sources = ScrapeRecorder.ViaBrowser, WorkItems = 1, Observations = 1, Succeeded = true,
+        });
+        await db.SaveChangesAsync(ct);
+        return Results.Ok((await LoadDtosAsync(db, stores, time, userId, tracked.Id, ct)).Single());
+    }
+
     private static async Task<IResult> UntrackAsync(Guid id, HttpContext http, AppDbContext db, CancellationToken ct)
     {
         var userId = http.User.GetUserId();
@@ -162,7 +206,7 @@ public static class TrackingEndpoints
                 t.Title, t.LastStatus, t.LastError, t.LastCheckedAt, t.NextCheckAt,
                 latest?.MinPrice, latest?.Currency, latest?.InStock,
                 points.Select(d => new TrackedPricePointDto(d.Day, d.MinPrice, d.InStock)).ToList(),
-                r.AddedAt);
+                r.AddedAt, t.LastSuccessVia);
         }).ToList();
     }
 }

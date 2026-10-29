@@ -147,6 +147,32 @@
       "blocked": "Blocked by store",
       "robotsDisallowed": "Not allowed by robots.txt",
       "error": "Error"
+    },
+    "checkInBrowser": "Open in your browser to send the price",
+    "openedHint": "This store shows bots a captcha, so the page opened in a new tab instead. Get past the captcha if one appears, wait for the price, then click the “Send to ashopper” bookmark.",
+    "reload": "Refresh list",
+    "viaBrowser": "sent from your browser",
+    "viaBrowserHint": "The last price came from the page you opened yourself, not from the scraper.",
+    "bookmarklet": {
+      "title": "Stores that block bots: send prices from your browser",
+      "why": "Some stores answer bots with a captcha. The scraper leaves them alone, but you can visit the page yourself and send the price with one click.",
+      "name": "Send to ashopper",
+      "drag": "Drag this to your bookmarks bar.",
+      "copy": "Copy bookmark code",
+      "copied": "Copied!",
+      "copyPrompt": "Copy this and save it as a bookmark’s address:",
+      "step1": "Track the product’s link here first.",
+      "step2": "Open the product page in your browser (the refresh button does it for blocked links). Get past the captcha if one appears.",
+      "step3": "Click “Send to ashopper”. A small window confirms the saved price."
     }
+  },
+  "capture": {
+    "title": "Send price to ashopper",
+    "noData": "No page data arrived. Click the “Send to ashopper” bookmark on a product page.",
+    "saving": "Saving…",
+    "signIn": "Sign in first, then click the bookmark on the store page again.",
+    "saved": "Saved {{price}} from {{store}}.",
+    "closeHint": "You can close this window.",
+    "toTracked": "Tracked links"
   }
 }

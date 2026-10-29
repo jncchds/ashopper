@@ -175,6 +175,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.Property(x => x.StoreKey).HasMaxLength(32);
             e.Property(x => x.LastStatus).HasConversion<string>().HasMaxLength(32);
             e.Property(x => x.LastError).HasMaxLength(500);
+            e.Property(x => x.LastSuccessVia).HasMaxLength(16);
             e.Property(x => x.Title).HasMaxLength(400);
             e.HasOne<Category>().WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
             // Products and offers are never hard-deleted; avoid extra cascade paths.

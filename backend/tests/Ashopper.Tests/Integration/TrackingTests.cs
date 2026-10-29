@@ -77,6 +77,45 @@ public class TrackingTests(ApiFactory api)
         Assert.Contains("challenge", item.LastError);
     }
 
+    [Fact]
+    public async Task Blocked_store_price_can_be_sent_from_the_users_browser()
+    {
+        var (client, _) = await api.SignUpAsync();
+        var washer = (await client.GetFromJsonAsync<List<CategoryDto>>("/api/categories", Json))!.Single(c => c.Slug == "home-washer");
+        const string link = "https://www.mediaexpert.pl/agd/pralki/pralka-test-123";
+        (await client.PostAsJsonAsync("/api/tracked", new TrackUrlRequest(link, washer.Id, null), Json)).EnsureSuccessStatusCode();
+
+        // What the bookmarklet collects: JSON-LD plus microdata turned into meta tags.
+        const string html = """
+            <script type="application/ld+json">{"@type":"Product","name":"Pralka Test 8 kg","brand":{"name":"Test"},"gtin13":"5900000000017"}</script>
+            <meta itemprop="price" content="1 899,00">
+            <meta itemprop="priceCurrency" content="PLN">
+            <meta itemprop="availability" content="https://schema.org/InStock">
+            """;
+        var response = await client.PostAsJsonAsync("/api/tracked/capture", new CaptureRequest(link + "?utm_source=x", html), Json);
+        response.EnsureSuccessStatusCode();
+        var item = (await response.Content.ReadFromJsonAsync<TrackedUrlDto>(Json))!;
+
+        Assert.Equal(ScrapeStatus.Ok, item.Status);
+        Assert.Equal(1899m, item.Price);
+        Assert.Equal("browser", item.LastSuccessVia);
+        Assert.Equal("Pralka Test 8 kg", item.Title);
+        Assert.NotNull(item.ProductId);
+    }
+
+    [Fact]
+    public async Task Capture_needs_a_tracked_page_with_a_price()
+    {
+        var (client, _) = await api.SignUpAsync();
+        const string html = """<script type="application/ld+json">{"@type":"Product","name":"X","offers":{"price":10,"priceCurrency":"PLN"}}</script>""";
+
+        var untracked = await client.PostAsJsonAsync("/api/tracked/capture", new CaptureRequest("https://www.mediaexpert.pl/not-tracked", html), Json);
+        var unsupported = await client.PostAsJsonAsync("/api/tracked/capture", new CaptureRequest("https://www.ceneo.pl/1", html), Json);
+
+        Assert.Equal(HttpStatusCode.BadRequest, untracked.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, unsupported.StatusCode);
+    }
+
     [Theory]
     [InlineData("https://www.ceneo.pl/12345")]
     [InlineData("not a url")]

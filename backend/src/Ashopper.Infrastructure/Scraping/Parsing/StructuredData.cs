@@ -248,7 +248,7 @@ public static partial class StructuredData
             Sku: null, Mpn: null, Ean: null,
             Price: price,
             Currency: currency?.ToUpperInvariant(),
-            InStock: Availability(tags.GetValueOrDefault("product:availability") ?? tags.GetValueOrDefault("og:availability")),
+            InStock: Availability(tags.GetValueOrDefault("product:availability") ?? tags.GetValueOrDefault("og:availability") ?? tags.GetValueOrDefault("availability")),
             Seller: null);
     }
 

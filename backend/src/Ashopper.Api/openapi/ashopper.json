@@ -817,6 +817,35 @@
         }
       }
     },
+    "/api/tracked/capture": {
+      "post": {
+        "tags": [
+          "Tracking"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedUrlDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tracked/{id}": {
       "delete": {
         "tags": [
@@ -936,6 +965,21 @@
           "linePrice": {
             "type": "number",
             "format": "double"
+          }
+        }
+      },
+      "CaptureRequest": {
+        "required": [
+          "url",
+          "html"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "html": {
+            "type": "string"
           }
         }
       },
@@ -1666,7 +1710,8 @@
           "currency",
           "inStock",
           "history",
-          "addedAt"
+          "addedAt",
+          "lastSuccessVia"
         ],
         "type": "object",
         "properties": {
@@ -1748,6 +1793,12 @@
           "addedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "lastSuccessVia": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
